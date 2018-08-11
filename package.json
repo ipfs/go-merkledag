@@ -9,27 +9,27 @@
   "gxDependencies": [
     {
       "author": "stebalien",
-      "hash": "QmVzK524a2VWLqyvtBeiHKsUAWYgeAk4DBeZoY7vpNPNRx",
+      "hash": "QmZXvzTJTiN6p469osBUtEwm4WwhXXoWcHC8aTS1cAJkjy",
       "name": "go-block-format",
-      "version": "0.1.8"
+      "version": "0.1.9"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmWrbExtUaQQHjJ8FVVDAWj5o1MRAELDUV3VmoQsZHHb6L",
+      "hash": "QmPWP23qkSx6TvFtf2whkTL5sYjbLghWZMCtMQ7cp1MCJL",
       "name": "go-ipld-cbor",
-      "version": "1.2.14"
+      "version": "1.2.15"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmYVNvtQkeZ6AKSwDrjQTs432QtL6umrrK41EBq3cu7iSP",
+      "hash": "Qmdu2AYUV7yMoVBQPxXNfe7FJcdx16kYtsx6jAPKWQYF1y",
       "name": "go-cid",
-      "version": "0.7.22"
+      "version": "0.7.24"
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmZtNq8dArGfnpCZfx2pUNY7UcjGhVp5qqwQ4hH6mpTMRQ",
+      "hash": "QmUSyMZ8Vt4vTZr5HdDEgEfpwAXfQRuDdfCFTt7XBzhxpQ",
       "name": "go-ipld-format",
-      "version": "0.5.5"
+      "version": "0.5.6"
     },
     {
       "author": "whyrusleeping",
@@ -39,9 +39,9 @@
     },
     {
       "author": "hsanjuan",
-      "hash": "QmWURzU3XRY4wYBsu2LHukKKHp5skkYB1K357nzpbEvRY4",
+      "hash": "QmNxamk8jB6saNF5G37Tiipf2JEnxt7qvesbngPMe24wMS",
       "name": "go-ipfs-exchange-offline",
-      "version": "0.0.12"
+      "version": "0.0.13"
     },
     {
       "author": "whyrusleeping",
@@ -51,9 +51,9 @@
     },
     {
       "author": "why",
-      "hash": "QmeZMtdkNG7u2CohGSL8mzAdZY2c3B1coYE91wvbzip1pF",
+      "hash": "QmSQDddUJRZCBEcEKp3icdiRUrVofvMSWmGyMXSysqjNCL",
       "name": "go-blockservice",
-      "version": "1.0.6"
+      "version": "1.0.7"
     }
   ],
   "gxVersion": "0.12.1",
