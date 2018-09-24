@@ -15,9 +15,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmPrv66vmh2P7vLJMpYx6DWLTNKvVB4Jdkyxs6V3QvWKvf",
+      "hash": "QmSywXfm2v4Qkp4DcFqo8eehj49dJK3bdUnaLVxrdFLMQn",
       "name": "go-ipld-cbor",
-      "version": "1.3.0"
+      "version": "1.5.0"
     },
     {
       "author": "whyrusleeping",
@@ -39,9 +39,9 @@
     },
     {
       "author": "hsanjuan",
-      "hash": "QmcRC35JF2pJQneAxa5LdQBQRumWggccWErogSrCkS1h8T",
+      "hash": "QmR5miWuikPxWyUrzMYJVmFUcD44pGdtc98h9Qsbp4YcJw",
       "name": "go-ipfs-exchange-offline",
-      "version": "0.1.1"
+      "version": "0.1.2"
     },
     {
       "author": "whyrusleeping",
@@ -51,9 +51,9 @@
     },
     {
       "author": "why",
-      "hash": "QmWAU1Etv448cx9GLohtr27vnVC87amqE7fN4Hf4hcLDQY",
+      "hash": "QmcRecCZWM2NZfCQrCe97Ch3Givv8KKEP82tGUDntzdLFe",
       "name": "go-blockservice",
-      "version": "1.1.2"
+      "version": "1.1.3"
     }
   ],
   "gxVersion": "0.12.1",
@@ -61,6 +61,6 @@
   "license": "",
   "name": "go-merkledag",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.2"
+  "version": "1.1.3"
 }
 
