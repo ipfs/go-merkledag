@@ -39,7 +39,7 @@
     },
     {
       "author": "hsanjuan",
-      "hash": "QmPXcrGQQEEPswwg6YiE2WLk8qkmvncZ7zphMKKP8bXqY3",
+      "hash": "QmT6dHGp3UYd3vUMpy7rzX2CXQv7HLcj42Vtq8qwwjgASb",
       "name": "go-ipfs-exchange-offline",
       "version": "0.1.3"
     },
@@ -51,9 +51,9 @@
     },
     {
       "author": "why",
-      "hash": "QmNozJswSuwiZspexEHcQo5GMqpzM5exUGjNW6s4AAipUX",
+      "hash": "Qmb2KGU7thDo7eoQkJZLCH4bhg5VZXFGnUhcjb8knyigLG",
       "name": "go-blockservice",
-      "version": "1.1.5"
+      "version": "1.1.6"
     }
   ],
   "gxVersion": "0.12.1",
@@ -61,6 +61,6 @@
   "license": "",
   "name": "go-merkledag",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.5"
+  "version": "1.1.6"
 }
 
