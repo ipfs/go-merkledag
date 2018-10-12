@@ -15,9 +15,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmSywXfm2v4Qkp4DcFqo8eehj49dJK3bdUnaLVxrdFLMQn",
+      "hash": "Qma8k32hzB25pgmdTPQr2DCa2DT2v7yCyGadMiYVKF1pyH",
       "name": "go-ipld-cbor",
-      "version": "1.5.0"
+      "version": "1.5.2"
     },
     {
       "author": "whyrusleeping",
@@ -51,9 +51,9 @@
     },
     {
       "author": "why",
-      "hash": "QmVgTAMesq25DK9JuPVZAohx2aRkx1s7n8obmDsA2ipd1u",
+      "hash": "QmSU7Nx5eUHWkc9zCTiXDu3ZkdXAZdRgRGRaKM86VjGU4m",
       "name": "go-blockservice",
-      "version": "1.1.8"
+      "version": "1.1.9"
     }
   ],
   "gxVersion": "0.12.1",
@@ -61,6 +61,6 @@
   "license": "",
   "name": "go-merkledag",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.8"
+  "version": "1.1.9"
 }
 
