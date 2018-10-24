@@ -51,9 +51,9 @@
     },
     {
       "author": "why",
-      "hash": "QmSU7Nx5eUHWkc9zCTiXDu3ZkdXAZdRgRGRaKM86VjGU4m",
+      "hash": "QmTdoqcwpxSgzUSzX9ZGj6RFsZ28A5SLqsJRUgdFvGQbFC",
       "name": "go-blockservice",
-      "version": "1.1.9"
+      "version": "1.1.10"
     }
   ],
   "gxVersion": "0.12.1",
@@ -61,6 +61,6 @@
   "license": "",
   "name": "go-merkledag",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.9"
+  "version": "1.1.10"
 }
 
