@@ -15,9 +15,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmTbioa9QA3czPVx55Su6NJbpyHFFHLJX8vN9iqnhxCd5z",
+      "hash": "QmSbrWdBtHgfYjeRcLotTrPXFkxY4GHMJZVxS6MQvzsYmf",
       "name": "go-ipld-cbor",
-      "version": "1.5.3"
+      "version": "1.5.4"
     },
     {
       "author": "whyrusleeping",
@@ -27,9 +27,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmdVNBLt7RMYnZwqBQJeexmSbTEDzERjBQUfs5McuPfEtB",
+      "hash": "QmR7TcHkR9nxkUorfi8XMTAMLUK7GiP64TWWBzY3aacc1o",
       "name": "go-ipld-format",
-      "version": "0.7.0"
+      "version": "0.7.1"
     },
     {
       "author": "whyrusleeping",
@@ -61,6 +61,6 @@
   "license": "",
   "name": "go-merkledag",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.14"
+  "version": "1.1.15"
 }
 
