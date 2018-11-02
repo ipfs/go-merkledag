@@ -15,9 +15,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmSbrWdBtHgfYjeRcLotTrPXFkxY4GHMJZVxS6MQvzsYmf",
+      "hash": "QmXkBdWGa9kZaVUsk6863T8bZkynwwL8UUB1EMZtz7dN5E",
       "name": "go-ipld-cbor",
-      "version": "1.5.4"
+      "version": "1.5.5"
     },
     {
       "author": "whyrusleeping",
