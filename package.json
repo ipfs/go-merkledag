@@ -15,9 +15,9 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmRZxJ7oybgnnwriuRub9JXp5YdFM9wiGSyRq38QC7swpS",
+      "hash": "QmcZLyosDwMKdB6NLRsiss9HXzDPhVhhRtPy67JFKTDQDX",
       "name": "go-ipld-cbor",
-      "version": "1.5.8"
+      "version": "1.5.9"
     },
     {
       "author": "whyrusleeping",
@@ -61,6 +61,6 @@
   "license": "",
   "name": "go-merkledag",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "1.1.32"
+  "version": "1.1.33"
 }
 
