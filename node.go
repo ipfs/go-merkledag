@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	cid "github.com/ipfs/go-cid"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -19,8 +20,9 @@ var (
 // ProtoNode represents a node in the IPFS Merkle DAG.
 // nodes have opaque data and a set of navigable links.
 type ProtoNode struct {
-	links []*ipld.Link
-	data  []byte
+	links map[string][]*ipld.Link
+
+	data []byte
 
 	// cache encoded/marshaled value
 	encoded []byte
@@ -94,6 +96,12 @@ func NodeWithData(d []byte) *ProtoNode {
 	return &ProtoNode{data: d}
 }
 
+func (n *ProtoNode) checkLinkMap() {
+	if n.links == nil {
+		n.links = map[string][]*ipld.Link{}
+	}
+}
+
 // AddNodeLink adds a link to another node.
 func (n *ProtoNode) AddNodeLink(name string, that ipld.Node) error {
 	n.encoded = nil
@@ -113,11 +121,9 @@ func (n *ProtoNode) AddNodeLink(name string, that ipld.Node) error {
 // AddRawLink adds a copy of a link to this node
 func (n *ProtoNode) AddRawLink(name string, l *ipld.Link) error {
 	n.encoded = nil
-	n.links = append(n.links, &ipld.Link{
-		Name: name,
-		Size: l.Size,
-		Cid:  l.Cid,
-	})
+
+	n.checkLinkMap()
+	n.links[name] = append(n.links[name], l)
 
 	return nil
 }
@@ -126,38 +132,28 @@ func (n *ProtoNode) AddRawLink(name string, l *ipld.Link) error {
 func (n *ProtoNode) RemoveNodeLink(name string) error {
 	n.encoded = nil
 
-	ref := n.links[:0]
-	found := false
-
-	for _, v := range n.links {
-		if v.Name != name {
-			ref = append(ref, v)
-		} else {
-			found = true
-		}
-	}
-
+	n.checkLinkMap()
+	_, found := n.links[name]
 	if !found {
 		return ipld.ErrNotFound
 	}
-
-	n.links = ref
+	delete(n.links, name)
 
 	return nil
 }
 
 // GetNodeLink returns a copy of the link with the given name.
 func (n *ProtoNode) GetNodeLink(name string) (*ipld.Link, error) {
-	for _, l := range n.links {
-		if l.Name == name {
-			return &ipld.Link{
-				Name: l.Name,
-				Size: l.Size,
-				Cid:  l.Cid,
-			}, nil
-		}
+	l, found := n.links[name]
+	if !found {
+		return nil, ErrLinkNotFound
 	}
-	return nil, ErrLinkNotFound
+
+	return &ipld.Link{
+		Name: l[0].Name,
+		Size: l[0].Size,
+		Cid:  l[0].Cid,
+	}, nil
 }
 
 // GetLinkedProtoNode returns a copy of the ProtoNode with the given name.
@@ -195,8 +191,15 @@ func (n *ProtoNode) Copy() ipld.Node {
 	}
 
 	if len(n.links) > 0 {
-		nnode.links = make([]*ipld.Link, len(n.links))
-		copy(nnode.links, n.links)
+		nnode.links = make(map[string][]*ipld.Link, len(n.links))
+		for k, v := range n.links {
+			ls := make([]*ipld.Link, len(v))
+			for i, l := range v {
+				ls[i] = l
+			}
+
+			nnode.links[k] = ls
+		}
 	}
 
 	nnode.builder = n.builder
@@ -241,7 +244,9 @@ func (n *ProtoNode) Size() (uint64, error) {
 
 	s := uint64(len(b))
 	for _, l := range n.links {
-		s += l.Size
+		for _, ls := range l {
+			s += ls.Size
+		}
 	}
 	return s, nil
 }
@@ -288,7 +293,8 @@ func (n *ProtoNode) UnmarshalJSON(b []byte) error {
 	}
 
 	n.data = s.Data
-	n.links = s.Links
+	n.SetLinks(s.Links)
+
 	return nil
 }
 
@@ -296,7 +302,7 @@ func (n *ProtoNode) UnmarshalJSON(b []byte) error {
 func (n *ProtoNode) MarshalJSON() ([]byte, error) {
 	out := map[string]interface{}{
 		"data":  n.data,
-		"links": n.links,
+		"links": n.Links(),
 	}
 
 	return json.Marshal(out)
@@ -338,13 +344,35 @@ func (n *ProtoNode) Multihash() mh.Multihash {
 }
 
 // Links returns the node links.
-func (n *ProtoNode) Links() []*ipld.Link {
-	return n.links
+func (n *ProtoNode) Links() (out []*ipld.Link) {
+
+	al, ok := n.links[""]
+	if len(n.links) == 1 && ok {
+		out = al // some code in go-ipfs modifies this array. Yes, really.
+	} else {
+		out = make([]*ipld.Link, 0, len(n.links))
+		for _, ls := range n.links {
+			for _, l := range ls {
+				out = append(out, l)
+			}
+		}
+	}
+
+	sort.Stable(LinkSlice(out))
+	return out
 }
 
 // SetLinks replaces the node links with the given ones.
 func (n *ProtoNode) SetLinks(links []*ipld.Link) {
-	n.links = links
+	ln := 0
+	if len(links) > 0 && links[0].Name != "" {
+		ln = len(links) // Only preallocate link map if node contains named links
+	}
+
+	n.links = make(map[string][]*ipld.Link, ln)
+	for _, l := range links {
+		n.links[l.Name] = append(n.links[l.Name], l)
+	}
 }
 
 // Resolve is an alias for ResolveLink.
@@ -377,8 +405,8 @@ func (n *ProtoNode) Tree(p string, depth int) []string {
 	}
 
 	out := make([]string, 0, len(n.links))
-	for _, lnk := range n.links {
-		out = append(out, lnk.Name)
+	for lname := range n.links {
+		out = append(out, lname)
 	}
 	return out
 }

@@ -30,16 +30,16 @@ func (n *ProtoNode) unmarshal(encoded []byte) error {
 	}
 
 	pbnl := pbn.GetLinks()
-	n.links = make([]*ipld.Link, len(pbnl))
+	n.links = make(map[string][]*ipld.Link, len(pbnl))
 	for i, l := range pbnl {
-		n.links[i] = &ipld.Link{Name: l.GetName(), Size: l.GetTsize()}
+		name := l.GetName()
+
 		c, err := cid.Cast(l.GetHash())
 		if err != nil {
 			return fmt.Errorf("link hash #%d is not valid multihash. %v", i, err)
 		}
-		n.links[i].Cid = c
+		n.links[name] = append(n.links[name], &ipld.Link{Name: name, Size: l.GetTsize(), Cid: c})
 	}
-	sort.Stable(LinkSlice(n.links)) // keep links sorted
 
 	n.data = pbn.GetData()
 	n.encoded = encoded
@@ -59,12 +59,13 @@ func (n *ProtoNode) Marshal() ([]byte, error) {
 
 func (n *ProtoNode) getPBNode() *pb.PBNode {
 	pbn := &pb.PBNode{}
-	if len(n.links) > 0 {
-		pbn.Links = make([]*pb.PBLink, len(n.links))
+	links := n.Links()
+	if len(links) > 0 {
+		pbn.Links = make([]*pb.PBLink, len(links))
 	}
 
-	sort.Stable(LinkSlice(n.links)) // keep links sorted
-	for i, l := range n.links {
+	sort.Stable(LinkSlice(links)) // keep links sorted
+	for i, l := range links {
 		pbn.Links[i] = &pb.PBLink{}
 		pbn.Links[i].Name = &l.Name
 		pbn.Links[i].Tsize = &l.Size
@@ -82,7 +83,6 @@ func (n *ProtoNode) getPBNode() *pb.PBNode {
 // EncodeProtobuf returns the encoded raw data version of a Node instance.
 // It may use a cached encoded version, unless the force flag is given.
 func (n *ProtoNode) EncodeProtobuf(force bool) ([]byte, error) {
-	sort.Stable(LinkSlice(n.links)) // keep links sorted
 	if n.encoded == nil || force {
 		n.cached = cid.Undef
 		var err error
