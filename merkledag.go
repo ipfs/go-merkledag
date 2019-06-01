@@ -220,23 +220,18 @@ func (n *dagService) GetMany(ctx context.Context, keys []cid.Cid) <-chan *ipld.N
 	return getNodesFromBG(ctx, n.Blocks, keys)
 }
 
-func dedupKeys(keys []cid.Cid) []cid.Cid {
+func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid) <-chan *ipld.NodeOption {
 	set := cid.NewSet()
 	for _, c := range keys {
 		set.Add(c)
 	}
-	if set.Len() == len(keys) {
-		return keys
-	}
-	return set.Keys()
-}
 
-func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid) <-chan *ipld.NodeOption {
-	keys = dedupKeys(keys)
+	if set.Len() != len(keys) {
+		keys = set.Keys()
+	}
 
 	out := make(chan *ipld.NodeOption, len(keys))
 	blocks := bs.GetBlocks(ctx, keys)
-	var count int
 
 	go func() {
 		defer close(out)
@@ -244,8 +239,8 @@ func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid) <
 			select {
 			case b, ok := <-blocks:
 				if !ok {
-					if count != len(keys) {
-						out <- &ipld.NodeOption{Err: fmt.Errorf("failed to fetch all nodes")}
+					if set.Len() != 0 {
+						out <- &ipld.NodeOption{Err: fmt.Errorf("failed to fetch nodes: %s", set.Keys())}
 					}
 					return
 				}
@@ -256,8 +251,9 @@ func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid) <
 					return
 				}
 
+				set.Remove(nd.Cid())
+
 				out <- &ipld.NodeOption{Node: nd}
-				count++
 
 			case <-ctx.Done():
 				out <- &ipld.NodeOption{Err: ctx.Err()}
