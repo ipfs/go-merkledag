@@ -742,31 +742,14 @@ func TestEnumerateAsyncFailsNotFound(t *testing.T) {
 	}
 }
 
-func TestProgressIndicator(t *testing.T) {
-	testProgressIndicator(t, 5)
-}
+func mkProtoNode() *ProtoNode {
+	p := new(ProtoNode)
+	buf := make([]byte, 16)
+	rand.Read(buf)
 
-func TestProgressIndicatorNoChildren(t *testing.T) {
-	testProgressIndicator(t, 0)
-}
+	p.SetData(buf)
 
-func testProgressIndicator(t *testing.T, depth int) {
-	ds := dstest.Mock()
-
-	top, numChildren := mkDag(ds, depth)
-
-	v := new(ProgressTracker)
-	ctx := v.DeriveContext(context.Background())
-
-	err := FetchGraph(ctx, top, ds)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if v.Value() != numChildren+1 {
-		t.Errorf("wrong number of children reported in progress indicator, expected %d, got %d",
-			numChildren+1, v.Value())
-	}
+	return p
 }
 
 func mkDag(ds ipld.DAGService, depth int) (cid.Cid, int) {
@@ -774,15 +757,13 @@ func mkDag(ds ipld.DAGService, depth int) (cid.Cid, int) {
 
 	totalChildren := 0
 	f := func() *ProtoNode {
-		p := new(ProtoNode)
-		buf := make([]byte, 16)
-		rand.Read(buf)
+		p := mkProtoNode()
 
-		p.SetData(buf)
 		err := ds.Add(ctx, p)
 		if err != nil {
 			panic(err)
 		}
+
 		return p
 	}
 
