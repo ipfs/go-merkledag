@@ -22,11 +22,6 @@ func init() {
 	ipld.Register(cid.DagCBOR, ipldcbor.DecodeBlock)
 }
 
-// contextKey is a type to use as value for the ProgressTracker contexts.
-type contextKey string
-
-const progressContextKey contextKey = "progress"
-
 // NewDAGService constructs a new DAGService (using the default implementation).
 // Note that the default implementation is also an ipld.LinkGetter.
 func NewDAGService(bs bserv.BlockService) *dagService {
@@ -196,14 +191,14 @@ func FetchGraphWithDepthLimit(ctx context.Context, root cid.Cid, depthLim int, s
 		return false
 	}
 
-	v, _ := ctx.Value(progressContextKey).(*ProgressTracker)
-	if v == nil {
+	progressTracker := GetProgressTracker(ctx)
+	if progressTracker == nil {
 		return EnumerateChildrenAsyncDepth(ctx, GetLinksDirect(ng), root, 0, visit)
 	}
 
 	visitProgress := func(c cid.Cid, depth int) bool {
 		if visit(c, depth) {
-			v.Increment()
+			progressTracker.PlanToPin(c)
 			return true
 		}
 		return false
@@ -312,32 +307,6 @@ func EnumerateChildrenDepth(ctx context.Context, getLinks GetLinks, root cid.Cid
 		}
 	}
 	return nil
-}
-
-// ProgressTracker is used to show progress when fetching nodes.
-type ProgressTracker struct {
-	Total int
-	lk    sync.Mutex
-}
-
-// DeriveContext returns a new context with value "progress" derived from
-// the given one.
-func (p *ProgressTracker) DeriveContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, progressContextKey, p)
-}
-
-// Increment adds one to the total progress.
-func (p *ProgressTracker) Increment() {
-	p.lk.Lock()
-	defer p.lk.Unlock()
-	p.Total++
-}
-
-// Value returns the current progress.
-func (p *ProgressTracker) Value() int {
-	p.lk.Lock()
-	defer p.lk.Unlock()
-	return p.Total
 }
 
 // FetchGraphConcurrency is total number of concurrent fetches that
