@@ -339,7 +339,7 @@ func (p *ProgressTracker) Value() int {
 
 // FetchGraphConcurrency is total number of concurrent fetches that
 // 'fetchNodes' will start at a time
-var FetchGraphConcurrency = 32
+var FetchGraphConcurrency = 256
 
 // WalkParallel is equivalent to Walk *except* that it explores multiple paths
 // in parallel.
