@@ -1,0 +1,14 @@
+coverage:
+  precision: 2
+  round: up
+  range: "50...90"
+  status:
+    project:
+      default:
+        threshold: 1
+  ignore:
+    - "pb"
+    - "ci"
+    - ".gx"
+    - "test"
+    - "client"
