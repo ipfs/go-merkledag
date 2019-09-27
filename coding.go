@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	blocks "github.com/ipfs/go-block-format"
 	pb "github.com/RTradeLtd/go-merkledag-staging/pb"
+	blocks "github.com/ipfs/go-block-format"
 
 	cid "github.com/ipfs/go-cid"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -54,6 +54,27 @@ func (n *ProtoNode) Marshal() ([]byte, error) {
 		return data, fmt.Errorf("marshal failed. %v", err)
 	}
 	return data, nil
+}
+
+// PBNodeToProtoNode turns a *pb.PBNode into a *ProtoNode
+func PBNodeToProtoNode(pbnode *pb.PBNode) (*ProtoNode, error) {
+	var pn = new(ProtoNode)
+	// handle conversion of links
+	pbnl := pbnode.GetLinks()
+	pn.links = make([]*ipld.Link, len(pbnl))
+	for i, l := range pbnl {
+		pn.links[i] = &ipld.Link{Name: l.GetName(), Size: l.GetTsize()}
+		c, err := cid.Cast(l.GetHash())
+		if err != nil {
+			return nil, fmt.Errorf("link hash #%d is not valid multihash. %v", i, err)
+		}
+		pn.links[i].Cid = c
+	}
+	// sort the links
+	sort.Stable(LinkSlice(pn.links)) // keep links sorted
+	// stre the data
+	pn.data = pbnode.GetData()
+	return pn, nil
 }
 
 // GetPBNode converts a *ProtoNode into a *pb.PBNode
