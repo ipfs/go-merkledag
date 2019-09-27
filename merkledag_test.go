@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/ipfs/go-merkledag"
-	mdpb "github.com/ipfs/go-merkledag/pb"
-	dstest "github.com/ipfs/go-merkledag/test"
+	. "github.com/RTradeLtd/go-merkledag-staging"
+	mdpb "github.com/RTradeLtd/go-merkledag-staging/pb"
+	dstest "github.com/RTradeLtd/go-merkledag-staging/test"
 
 	blocks "github.com/ipfs/go-block-format"
 	bserv "github.com/ipfs/go-blockservice"
