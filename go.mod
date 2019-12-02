@@ -13,3 +13,5 @@ require (
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/multiformats/go-multihash v0.0.5
 )
+
+go 1.12
