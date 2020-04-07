@@ -71,7 +71,7 @@ func (n *dagService) Get(ctx context.Context, c cid.Cid) (ipld.Node, error) {
 	b, err := n.Blocks.GetBlock(ctx, c)
 	if err != nil {
 		if err == bserv.ErrNotFound {
-			return nil, ipld.ErrNotFound
+			return nil, ipld.ErrNotFound{c}
 		}
 		return nil, fmt.Errorf("failed to get block for %s: %v", c, err)
 	}
@@ -119,7 +119,7 @@ func GetLinksDirect(serv ipld.NodeGetter) GetLinks {
 		nd, err := serv.Get(ctx, c)
 		if err != nil {
 			if err == bserv.ErrNotFound {
-				err = ipld.ErrNotFound
+				err = ipld.ErrNotFound{c}
 			}
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (sg *sesGetter) Get(ctx context.Context, c cid.Cid) (ipld.Node, error) {
 	blk, err := sg.bs.GetBlock(ctx, c)
 	switch err {
 	case bserv.ErrNotFound:
-		return nil, ipld.ErrNotFound
+		return nil, ipld.ErrNotFound{c}
 	default:
 		return nil, err
 	case nil:
@@ -348,7 +348,7 @@ func IgnoreErrors() WalkOption {
 func IgnoreMissing() WalkOption {
 	return func(walkOptions *walkOptions) {
 		walkOptions.addHandler(func(c cid.Cid, err error) error {
-			if err == ipld.ErrNotFound {
+			if ipld.IsNotFound(err) {
 				return nil
 			}
 			return err
@@ -361,7 +361,7 @@ func IgnoreMissing() WalkOption {
 func OnMissing(callback func(c cid.Cid)) WalkOption {
 	return func(walkOptions *walkOptions) {
 		walkOptions.addHandler(func(c cid.Cid, err error) error {
-			if err == ipld.ErrNotFound {
+			if ipld.IsNotFound(err) {
 				callback(c)
 			}
 			return err
