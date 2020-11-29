@@ -190,6 +190,7 @@ func MergeDiffs(a, b []*Change) ([]*Change, []Conflict) {
 				A: ca,
 				B: c,
 			})
+			delete(paths, c.Path)
 		} else {
 			out = append(out, c)
 		}
