@@ -2,7 +2,6 @@ package dagutils
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	cid "github.com/ipfs/go-cid"
