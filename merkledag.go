@@ -9,6 +9,7 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	bserv "github.com/ipfs/go-blockservice"
 	cid "github.com/ipfs/go-cid"
+	exchange "github.com/ipfs/go-ipfs-exchange-interface"
 	ipldcbor "github.com/ipfs/go-ipld-cbor"
 	ipld "github.com/ipfs/go-ipld-format"
 )
@@ -157,17 +158,15 @@ func (n *dagService) Session(ctx context.Context) ipld.NodeGetter {
 }
 
 // FetchGraph fetches all nodes that are children of the given node
-func FetchGraph(ctx context.Context, root cid.Cid, serv ipld.DAGService) error {
-	return FetchGraphWithDepthLimit(ctx, root, -1, serv)
+func FetchGraph(ctx context.Context, root cid.Cid, ng ipld.NodeGetter) error {
+	return FetchGraphWithDepthLimit(ctx, root, -1, ng)
 }
 
 // FetchGraphWithDepthLimit fetches all nodes that are children to the given
 // node down to the given depth. maxDepth=0 means "only fetch root",
 // maxDepth=1 means "fetch root and its direct children" and so on...
 // maxDepth=-1 means unlimited.
-func FetchGraphWithDepthLimit(ctx context.Context, root cid.Cid, depthLim int, serv ipld.DAGService) error {
-	var ng ipld.NodeGetter = NewSession(ctx, serv)
-
+func FetchGraphWithDepthLimit(ctx context.Context, root cid.Cid, depthLim int, ng ipld.NodeGetter) error {
 	set := make(map[cid.Cid]int)
 
 	// Visit function returns true when:
@@ -386,6 +385,11 @@ func Walk(ctx context.Context, getLinks GetLinks, c cid.Cid, visit func(cid.Cid)
 // depth to a given visit function. The visit function can be used to limit DAG
 // exploration.
 func WalkDepth(ctx context.Context, getLinks GetLinks, c cid.Cid, visit func(cid.Cid, int) bool, options ...WalkOption) error {
+	// Make sure we have an exchange session.
+	ctx, cancel := context.WithCancel(ctx)
+	ctx = exchange.NewSession(ctx)
+	defer cancel()
+
 	opts := &walkOptions{}
 	for _, opt := range options {
 		opt(opts)

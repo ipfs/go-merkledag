@@ -13,6 +13,10 @@ type SessionMaker interface {
 
 // NewSession returns a session backed NodeGetter if the given NodeGetter
 // implements SessionMaker.
+//
+// Deprecated: Use exchange.NewSession to wrap your context. This function only
+// works if the NodeGetter happens to implement the session interface. If it has
+// been wrapped in some way, it won't work.
 func NewSession(ctx context.Context, g ipld.NodeGetter) ipld.NodeGetter {
 	if sm, ok := g.(SessionMaker); ok {
 		return sm.Session(ctx)
