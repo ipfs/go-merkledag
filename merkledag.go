@@ -92,8 +92,12 @@ func (n *dagService) GetLinks(ctx context.Context, c cid.Cid) ([]*ipld.Link, err
 	return node.Links(), nil
 }
 
+// Remove, removes a node from a DAG.  Due to the fact that the
+// underlying blockservice is indexed based on Multihash and not CIDs
+// it may also remove other nodes with the same multihash, but
+// different CID's due to a different Codec or CID version.
 func (n *dagService) Remove(ctx context.Context, c cid.Cid) error {
-	return n.Blocks.DeleteBlock(c)
+	return n.Blocks.DeleteBlock(c.Hash())
 }
 
 // RemoveMany removes multiple nodes from the DAG. It will likely be faster than
@@ -104,7 +108,7 @@ func (n *dagService) Remove(ctx context.Context, c cid.Cid) error {
 func (n *dagService) RemoveMany(ctx context.Context, cids []cid.Cid) error {
 	// TODO(#4608): make this batch all the way down.
 	for _, c := range cids {
-		if err := n.Blocks.DeleteBlock(c); err != nil {
+		if err := n.Blocks.DeleteBlock(c.Hash()); err != nil {
 			return err
 		}
 	}
