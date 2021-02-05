@@ -402,7 +402,7 @@ func Walk(ctx context.Context, getLinks GetLinks, c cid.Cid, visit func(cid.Cid)
 	}
 
 	if options.BreadthFirst {
-		return WalkBreadth(ctx, getLinks, []cid.Cid{c}, 0, visitDepth, options)
+		return WalkBreadth(ctx, getLinks, c, 0, visitDepth, options)
 	} else {
 		return WalkDepth(ctx, getLinks, c, visitDepth, options)
 	}
@@ -411,8 +411,10 @@ func Walk(ctx context.Context, getLinks GetLinks, c cid.Cid, visit func(cid.Cid)
 // WalkBreadth walks the DAG starting at the given root in breadth-first order.
 // The visit function can be used to limit DAG exploration.
 // FIXME: Add parallel implementation.
-func WalkBreadth(ctx context.Context, getLinks GetLinks, sameDepthNodes []cid.Cid, depth int, visit func(cid.Cid, int) bool, options *walkOptions) error {
+func WalkBreadth(ctx context.Context, getLinks GetLinks, root cid.Cid, depth int, visit func(cid.Cid, int) bool, options *walkOptions) error {
+	sameDepthNodes := []cid.Cid{root}
 	childNodes := make([]cid.Cid, 0)
+
 	for len(sameDepthNodes) > 0 {
 		for _, c := range sameDepthNodes {
 			if !(options.SkipRoot && depth == 0) {
