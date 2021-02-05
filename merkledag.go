@@ -413,8 +413,7 @@ func Walk(ctx context.Context, getLinks GetLinks, c cid.Cid, visit func(cid.Cid)
 // FIXME: Add parallel implementation.
 func WalkBreadth(ctx context.Context, getLinks GetLinks, root cid.Cid, depth int, visit func(cid.Cid, int) bool, options *walkOptions) error {
 	sameDepthNodes := []cid.Cid{root}
-	childNodes := make([]cid.Cid, 0)
-
+	childNodes := []cid.Cid{}
 	for len(sameDepthNodes) > 0 {
 		for _, c := range sameDepthNodes {
 			if !(options.SkipRoot && depth == 0) {
@@ -438,7 +437,7 @@ func WalkBreadth(ctx context.Context, getLinks GetLinks, root cid.Cid, depth int
 		depth += 1
 		// FIXME: Is this the correct way to avoid re-allocating too much?
 		sameDepthNodes = childNodes
-		childNodes = childNodes[:0]
+		childNodes = nil
 	}
 	return nil
 }
