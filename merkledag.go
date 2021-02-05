@@ -433,6 +433,7 @@ func WalkBreadth(ctx context.Context, getLinks GetLinks, sameDepthNodes []cid.Ci
 				childNodes = append(childNodes, link.Cid)
 			}
 		}
+		depth += 1
 		// FIXME: Is this the correct way to avoid re-allocating too much?
 		sameDepthNodes = childNodes
 		childNodes = childNodes[:0]
