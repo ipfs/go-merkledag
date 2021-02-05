@@ -190,11 +190,13 @@ func FetchGraphWithDepthLimit(ctx context.Context, root cid.Cid, depthLim int, s
 		}
 		return false
 	}
+	options := &walkOptions{}
+	Concurrent()(options)
 
 	// If we have a ProgressTracker, we wrap the visit function to handle it
 	v, _ := ctx.Value(progressContextKey).(*ProgressTracker)
 	if v == nil {
-		return WalkDepth(ctx, GetLinksDirect(ng), root, visit, Concurrent())
+		return WalkDepth(ctx, GetLinksDirect(ng), root, visit, options)
 	}
 
 	visitProgress := func(c cid.Cid, depth int) bool {
@@ -204,7 +206,7 @@ func FetchGraphWithDepthLimit(ctx context.Context, root cid.Cid, depthLim int, s
 		}
 		return false
 	}
-	return WalkDepth(ctx, GetLinksDirect(ng), root, visitProgress, Concurrent())
+	return WalkDepth(ctx, GetLinksDirect(ng), root, visitProgress, options)
 }
 
 // GetMany gets many nodes from the DAG at once.
@@ -400,7 +402,7 @@ func Walk(ctx context.Context, getLinks GetLinks, c cid.Cid, visit func(cid.Cid)
 	}
 
 	if options.BreadthFirst {
-		return WalkBreadth(ctx, getLinks, []cid.Cid{c}, visitDepth, options)
+		return WalkBreadth(ctx, getLinks, []cid.Cid{c}, 0, visitDepth, options)
 	} else {
 		return WalkDepth(ctx, getLinks, c, visitDepth, options)
 	}
