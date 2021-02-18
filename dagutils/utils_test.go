@@ -17,15 +17,14 @@ func TestAddLink(t *testing.T) {
 	defer context()
 
 	ds := mdtest.Mock()
-	fishnode := dag.NodeWithData([]byte("fishcakes!"))
-
+	fishnode := finalize(t, dag.NodeWithData([]byte("fishcakes!")))
 	err := ds.Add(ctx, fishnode)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	nd := new(dag.ProtoNode)
-	nnode, err := addLink(ctx, ds, nd, "fish", fishnode)
+	nd := new(dag.MutableProtoNode)
+	nnode, err := addLink(ctx, ds, nil, nd, "fish", fishnode)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +59,7 @@ func assertNodeAtPath(t *testing.T, ds ipld.DAGService, root *dag.ProtoNode, pth
 }
 
 func TestInsertNode(t *testing.T) {
-	root := new(dag.ProtoNode)
+	root := finalize(t, new(dag.MutableProtoNode))
 	e := NewDagEditor(root, nil)
 
 	testInsert(t, e, "a", "anodefortesting", false, "")
@@ -81,16 +80,16 @@ func TestInsertNode(t *testing.T) {
 }
 
 func testInsert(t *testing.T, e *Editor, path, data string, create bool, experr string) {
-	child := dag.NodeWithData([]byte(data))
+	child := finalize(t, dag.NodeWithData([]byte(data)))
 	err := e.tmp.Add(context.Background(), child)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var c func() *dag.ProtoNode
+	var c func() *dag.MutableProtoNode
 	if create {
-		c = func() *dag.ProtoNode {
-			return &dag.ProtoNode{}
+		c = func() *dag.MutableProtoNode {
+			return &dag.MutableProtoNode{}
 		}
 	}
 

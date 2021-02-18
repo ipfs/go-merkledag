@@ -353,11 +353,11 @@ func testWalkOutputs(t *testing.T, root ipld.Node, opts Options, expect []byte) 
 
 func newFan(t *testing.T, ds ipld.DAGService) ipld.Node {
 	a := mdag.NodeWithData([]byte("/a"))
-	addLink(t, ds, a, child(t, ds, a, "aa"))
-	addLink(t, ds, a, child(t, ds, a, "ab"))
-	addLink(t, ds, a, child(t, ds, a, "ac"))
-	addLink(t, ds, a, child(t, ds, a, "ad"))
-	return a
+	addLink(t, ds, a, finalChild(t, ds, a, "aa"))
+	addLink(t, ds, a, finalChild(t, ds, a, "ab"))
+	addLink(t, ds, a, finalChild(t, ds, a, "ac"))
+	addLink(t, ds, a, finalChild(t, ds, a, "ad"))
+	return finalize(t, a)
 }
 
 func newLinkedList(t *testing.T, ds ipld.DAGService) ipld.Node {
@@ -365,25 +365,25 @@ func newLinkedList(t *testing.T, ds ipld.DAGService) ipld.Node {
 	aa := child(t, ds, a, "aa")
 	aaa := child(t, ds, aa, "aaa")
 	aaaa := child(t, ds, aaa, "aaaa")
-	aaaaa := child(t, ds, aaaa, "aaaaa")
+	aaaaa := finalChild(t, ds, aaaa, "aaaaa")
 	addLink(t, ds, aaaa, aaaaa)
-	addLink(t, ds, aaa, aaaa)
-	addLink(t, ds, aa, aaa)
-	addLink(t, ds, a, aa)
-	return a
+	addLink(t, ds, aaa, finalize(t, aaaa))
+	addLink(t, ds, aa, finalize(t, aaa))
+	addLink(t, ds, a, finalize(t, aa))
+	return finalize(t, a)
 }
 
 func newBinaryTree(t *testing.T, ds ipld.DAGService) ipld.Node {
 	a := mdag.NodeWithData([]byte("/a"))
 	aa := child(t, ds, a, "aa")
 	ab := child(t, ds, a, "ab")
-	addLink(t, ds, aa, child(t, ds, aa, "aaa"))
-	addLink(t, ds, aa, child(t, ds, aa, "aab"))
-	addLink(t, ds, ab, child(t, ds, ab, "aba"))
-	addLink(t, ds, ab, child(t, ds, ab, "abb"))
-	addLink(t, ds, a, aa)
-	addLink(t, ds, a, ab)
-	return a
+	addLink(t, ds, aa, finalChild(t, ds, aa, "aaa"))
+	addLink(t, ds, aa, finalChild(t, ds, aa, "aab"))
+	addLink(t, ds, ab, finalChild(t, ds, ab, "aba"))
+	addLink(t, ds, ab, finalChild(t, ds, ab, "abb"))
+	addLink(t, ds, a, finalize(t, aa))
+	addLink(t, ds, a, finalize(t, ab))
+	return finalize(t, a)
 }
 
 func newBinaryDAG(t *testing.T, ds ipld.DAGService) ipld.Node {
@@ -391,28 +391,43 @@ func newBinaryDAG(t *testing.T, ds ipld.DAGService) ipld.Node {
 	aa := child(t, ds, a, "aa")
 	aaa := child(t, ds, aa, "aaa")
 	aaaa := child(t, ds, aaa, "aaaa")
-	aaaaa := child(t, ds, aaaa, "aaaaa")
+	aaaaa := finalChild(t, ds, aaaa, "aaaaa")
 	addLink(t, ds, aaaa, aaaaa)
 	addLink(t, ds, aaaa, aaaaa)
-	addLink(t, ds, aaa, aaaa)
-	addLink(t, ds, aaa, aaaa)
-	addLink(t, ds, aa, aaa)
-	addLink(t, ds, aa, aaa)
-	addLink(t, ds, a, aa)
-	addLink(t, ds, a, aa)
-	return a
+	faaaa := finalize(t, aaaa)
+	addLink(t, ds, aaa, faaaa)
+	addLink(t, ds, aaa, faaaa)
+	faaa := finalize(t, aaa)
+	addLink(t, ds, aa, faaa)
+	addLink(t, ds, aa, faaa)
+	faa := finalize(t, aa)
+	addLink(t, ds, a, faa)
+	addLink(t, ds, a, faa)
+	return finalize(t, a)
 }
 
-func addLink(t *testing.T, ds ipld.DAGService, a, b ipld.Node) {
-	to := string(a.(*mdag.ProtoNode).Data()) + "2" + string(b.(*mdag.ProtoNode).Data())
+func addLink(t *testing.T, ds ipld.DAGService, a *mdag.MutableProtoNode, b ipld.Node) {
+	to := string(a.Data()) + "2" + string(b.(*mdag.ProtoNode).Data())
 	if err := ds.Add(context.Background(), b); err != nil {
 		t.Error(err)
 	}
-	if err := a.(*mdag.ProtoNode).AddNodeLink(to, b.(*mdag.ProtoNode)); err != nil {
+	if err := a.AddNodeLink(to, b.(*mdag.ProtoNode)); err != nil {
 		t.Error(err)
 	}
 }
 
-func child(t *testing.T, ds ipld.DAGService, a ipld.Node, name string) ipld.Node {
-	return mdag.NodeWithData([]byte(string(a.(*mdag.ProtoNode).Data()) + "/" + name))
+func finalize(t *testing.T, mnd *mdag.MutableProtoNode) ipld.Node {
+	nd, err := mnd.Finalize()
+	if err != nil {
+		t.Error(err)
+	}
+	return nd
+}
+
+func child(t *testing.T, ds ipld.DAGService, a *mdag.MutableProtoNode, name string) *mdag.MutableProtoNode {
+	return mdag.NodeWithData([]byte(string(a.Data()) + "/" + name))
+}
+
+func finalChild(t *testing.T, ds ipld.DAGService, a *mdag.MutableProtoNode, name string) ipld.Node {
+	return finalize(t, child(t, ds, a, name))
 }

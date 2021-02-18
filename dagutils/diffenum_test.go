@@ -14,7 +14,7 @@ import (
 
 func buildNode(name string, desc map[string]ndesc, out map[string]ipld.Node) ipld.Node {
 	this := desc[name]
-	nd := new(dag.ProtoNode)
+	nd := new(dag.MutableProtoNode)
 	nd.SetData([]byte(name))
 	for k, v := range this {
 		child, ok := out[v]
@@ -28,7 +28,8 @@ func buildNode(name string, desc map[string]ndesc, out map[string]ipld.Node) ipl
 		}
 	}
 
-	return nd
+	fnd, _ := nd.Finalize()
+	return fnd
 }
 
 type ndesc map[string]string

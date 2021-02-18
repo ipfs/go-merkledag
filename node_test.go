@@ -13,7 +13,7 @@ import (
 )
 
 func TestStableCID(t *testing.T) {
-	nd := &ProtoNode{}
+	nd := &MutableProtoNode{}
 	nd.SetData([]byte("foobar"))
 	nd.SetLinks([]*ipld.Link{
 		{Name: "a"},
@@ -24,13 +24,14 @@ func TestStableCID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !nd.Cid().Equals(expected) {
-		t.Fatalf("Got CID %s, expected CID %s", nd.Cid(), expected)
+	fnd := finalize(t, nd)
+	if !fnd.Cid().Equals(expected) {
+		t.Fatalf("Got CID %s, expected CID %s", fnd.Cid(), expected)
 	}
 }
 
 func TestRemoveLink(t *testing.T) {
-	nd := &ProtoNode{}
+	nd := &MutableProtoNode{}
 	nd.SetLinks([]*ipld.Link{
 		{Name: "a"},
 		{Name: "b"},
@@ -81,7 +82,7 @@ func TestFindLink(t *testing.T) {
 	ctx := context.Background()
 
 	ds := mdtest.Mock()
-	ndEmpty := new(ProtoNode)
+	ndEmpty := finalize(t, new(MutableProtoNode))
 	err := ds.Add(ctx, ndEmpty)
 	if err != nil {
 		t.Fatal(err)
@@ -89,19 +90,20 @@ func TestFindLink(t *testing.T) {
 
 	kEmpty := ndEmpty.Cid()
 
-	nd := &ProtoNode{}
+	nd := &MutableProtoNode{}
 	nd.SetLinks([]*ipld.Link{
 		{Name: "a", Cid: kEmpty},
 		{Name: "c", Cid: kEmpty},
 		{Name: "b", Cid: kEmpty},
 	})
 
-	err = ds.Add(ctx, nd)
+	fnd := finalize(t, nd)
+	err = ds.Add(ctx, fnd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	lnk, err := nd.GetNodeLink("b")
+	lnk, err := fnd.GetNodeLink("b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,22 +112,23 @@ func TestFindLink(t *testing.T) {
 		t.Fatal("got wrong link back")
 	}
 
-	_, err = nd.GetNodeLink("f")
+	_, err = fnd.GetNodeLink("f")
 	if err != ErrLinkNotFound {
 		t.Fatal("shouldnt have found link")
 	}
 
-	_, err = nd.GetLinkedNode(context.Background(), ds, "b")
+	_, err = fnd.GetLinkedNode(context.Background(), ds, "b")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	outnd, err := nd.UpdateNodeLink("b", nd)
+	outnd, err := nd.UpdateNodeLink("b", fnd)
 	if err != nil {
 		t.Fatal(err)
 	}
+	foutnd := finalize(t, outnd)
 
-	olnk, err := outnd.GetNodeLink("b")
+	olnk, err := foutnd.GetNodeLink("b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +139,7 @@ func TestFindLink(t *testing.T) {
 }
 
 func TestNodeCopy(t *testing.T) {
-	nd := &ProtoNode{}
+	nd := &MutableProtoNode{}
 	nd.SetLinks([]*ipld.Link{
 		{Name: "a"},
 		{Name: "c"},
@@ -145,7 +148,7 @@ func TestNodeCopy(t *testing.T) {
 
 	nd.SetData([]byte("testing"))
 
-	ond := nd.Copy().(*ProtoNode)
+	ond := nd.Copy()
 	ond.SetData(nil)
 
 	if nd.Data() == nil {
@@ -154,20 +157,21 @@ func TestNodeCopy(t *testing.T) {
 }
 
 func TestJsonRoundtrip(t *testing.T) {
-	nd := new(ProtoNode)
+	nd := new(MutableProtoNode)
 	nd.SetLinks([]*ipld.Link{
 		{Name: "a"},
 		{Name: "c"},
 		{Name: "b"},
 	})
 	nd.SetData([]byte("testing"))
+	fnd := finalize(t, nd)
 
-	jb, err := nd.MarshalJSON()
+	jb, err := fnd.MarshalJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	nn := new(ProtoNode)
+	nn := new(MutableProtoNode)
 	err = nn.UnmarshalJSON(jb)
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +181,8 @@ func TestJsonRoundtrip(t *testing.T) {
 		t.Fatal("data wasnt the same")
 	}
 
-	if !nn.Cid().Equals(nd.Cid()) {
+	fnn := finalize(t, nn)
+	if !fnn.Cid().Equals(fnd.Cid()) {
 		t.Fatal("objects differed after marshaling")
 	}
 }

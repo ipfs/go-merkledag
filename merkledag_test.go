@@ -27,34 +27,43 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 )
 
+func finalize(t *testing.T, a *MutableProtoNode) *ProtoNode {
+	nd, err := a.Finalize()
+	if err != nil {
+		t.Error(t, err)
+	}
+	return nd
+}
+
 // makeDepthTestingGraph makes a small DAG with two levels. The level-two
 // nodes are both children of the root and of one of the level 1 nodes.
 // This is meant to test the Walk*Depth functions.
 func makeDepthTestingGraph(t *testing.T, ds ipld.DAGService) ipld.Node {
 	root := NodeWithData(nil)
 	l11 := NodeWithData([]byte("leve1_node1"))
-	l12 := NodeWithData([]byte("leve1_node2"))
-	l21 := NodeWithData([]byte("leve2_node1"))
-	l22 := NodeWithData([]byte("leve2_node2"))
-	l23 := NodeWithData([]byte("leve2_node3"))
+	l12 := finalize(t, NodeWithData([]byte("leve1_node2")))
+	l21 := finalize(t, NodeWithData([]byte("leve2_node1")))
+	l22 := finalize(t, NodeWithData([]byte("leve2_node2")))
+	l23 := finalize(t, NodeWithData([]byte("leve2_node3")))
 
 	l11.AddNodeLink(l21.Cid().String(), l21)
 	l11.AddNodeLink(l22.Cid().String(), l22)
 	l11.AddNodeLink(l23.Cid().String(), l23)
+	fl11 := finalize(t, l11)
 
-	root.AddNodeLink(l11.Cid().String(), l11)
+	root.AddNodeLink(fl11.Cid().String(), fl11)
 	root.AddNodeLink(l12.Cid().String(), l12)
 	root.AddNodeLink(l23.Cid().String(), l23)
-
+	froot := finalize(t, root)
 	ctx := context.Background()
-	for _, n := range []ipld.Node{l23, l22, l21, l12, l11, root} {
+	for _, n := range []ipld.Node{l23, l22, l21, l12, fl11, froot} {
 		err := ds.Add(ctx, n)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	return root
+	return froot
 }
 
 // Check that all children of root are in the given set and in the datastore
@@ -75,8 +84,8 @@ func traverseAndCheck(t *testing.T, root ipld.Node, ds ipld.DAGService, hasF fun
 
 func TestNode(t *testing.T) {
 
-	n1 := NodeWithData([]byte("beep"))
-	n2 := NodeWithData([]byte("boop"))
+	n1 := finalize(t, NodeWithData([]byte("beep")))
+	n2 := finalize(t, NodeWithData([]byte("boop")))
 	n3 := NodeWithData([]byte("beep boop"))
 	if err := n3.AddNodeLink("beep-link", n1); err != nil {
 		t.Error(err)
@@ -94,12 +103,7 @@ func TestNode(t *testing.T) {
 			fmt.Println("-", l.Name, l.Size, l.Cid)
 		}
 
-		e, err := n.EncodeProtobuf(false)
-		if err != nil {
-			t.Error(err)
-		} else {
-			fmt.Println("encoded:", e)
-		}
+		fmt.Println("encoded:", n.RawData())
 
 		h := n.Multihash()
 		k := n.Cid().Hash()
@@ -114,15 +118,10 @@ func TestNode(t *testing.T) {
 
 	printn("beep", n1)
 	printn("boop", n2)
-	printn("beep boop", n3)
+	printn("beep boop", finalize(t, n3))
 }
 
 func SubtestNodeStat(t *testing.T, n *ProtoNode) {
-	enc, err := n.EncodeProtobuf(true)
-	if err != nil {
-		t.Error("n.EncodeProtobuf(true) failed")
-		return
-	}
 
 	cumSize, err := n.Size()
 	if err != nil {
@@ -134,8 +133,8 @@ func SubtestNodeStat(t *testing.T, n *ProtoNode) {
 
 	expected := ipld.NodeStat{
 		NumLinks:       len(n.Links()),
-		BlockSize:      len(enc),
-		LinksSize:      len(enc) - len(n.Data()), // includes framing.
+		BlockSize:      len(n.RawData()),
+		LinksSize:      len(n.RawData()) - len(n.Data()), // includes framing.
 		DataSize:       len(n.Data()),
 		CumulativeSize: int(cumSize),
 		Hash:           k.String(),
@@ -195,7 +194,7 @@ func makeTestDAG(t *testing.T, read io.Reader, ds ipld.DAGService) ipld.Node {
 			t.Fatal("should have read 512 bytes from the reader")
 		}
 
-		protoNode := NodeWithData(p)
+		protoNode := finalize(t, NodeWithData(p))
 		nodes = append(nodes, protoNode)
 	}
 
@@ -212,11 +211,12 @@ func makeTestDAG(t *testing.T, read io.Reader, ds ipld.DAGService) ipld.Node {
 			t.Fatal(err)
 		}
 	}
-	err := ds.Add(ctx, root)
+	froot := finalize(t, root)
+	err := ds.Add(ctx, froot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return root
+	return froot
 }
 
 // makeTestDAGReader takes the root node as returned by makeTestDAG and
@@ -308,7 +308,7 @@ func runBatchFetchTest(t *testing.T, read io.Reader) {
 
 func TestCantGet(t *testing.T) {
 	ds := dstest.Mock()
-	a := NodeWithData([]byte("A"))
+	a := finalize(t, NodeWithData([]byte("A")))
 
 	c := a.Cid()
 	_, err := ds.Get(context.Background(), c)
@@ -426,9 +426,9 @@ func TestFetchFailure(t *testing.T) {
 	ds := dstest.Mock()
 	ds_bad := dstest.Mock()
 
-	top := new(ProtoNode)
+	top := new(MutableProtoNode)
 	for i := 0; i < 10; i++ {
-		nd := NodeWithData([]byte{byte('a' + i)})
+		nd := finalize(t, NodeWithData([]byte{byte('a' + i)}))
 		err := ds.Add(ctx, nd)
 		if err != nil {
 			t.Fatal(err)
@@ -441,7 +441,7 @@ func TestFetchFailure(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		nd := NodeWithData([]byte{'f', 'a' + byte(i)})
+		nd := finalize(t, NodeWithData([]byte{'f', 'a' + byte(i)}))
 		err := ds_bad.Add(ctx, nd)
 		if err != nil {
 			t.Fatal(err)
@@ -452,8 +452,8 @@ func TestFetchFailure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-
-	getters := ipld.GetDAG(ctx, ds, top)
+	ftop := finalize(t, top)
+	getters := ipld.GetDAG(ctx, ds, ftop)
 	for i, getter := range getters {
 		_, err := getter.Get(ctx)
 		if err != nil && i < 10 {
@@ -484,16 +484,14 @@ func TestUnmarshalFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have failed to parse node with bad link")
 	}
-
-	n := &ProtoNode{}
-	n.Marshal()
 }
 
 func TestBasicAddGet(t *testing.T) {
 	ctx := context.Background()
 
 	ds := dstest.Mock()
-	nd := new(ProtoNode)
+	empty := new(MutableProtoNode)
+	nd := finalize(t, empty)
 
 	err := ds.Add(ctx, nd)
 	if err != nil {
@@ -568,10 +566,10 @@ func TestGetRawNodes(t *testing.T) {
 
 func TestProtoNodeResolve(t *testing.T) {
 
-	nd := new(ProtoNode)
+	nd := new(MutableProtoNode)
 	nd.SetLinks([]*ipld.Link{{Name: "foo"}})
-
-	lnk, left, err := nd.ResolveLink([]string{"foo", "bar"})
+	fnd := finalize(t, nd)
+	lnk, left, err := fnd.ResolveLink([]string{"foo", "bar"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -584,7 +582,7 @@ func TestProtoNodeResolve(t *testing.T) {
 		t.Fatal("how did we get anything else?")
 	}
 
-	tvals := nd.Tree("", -1)
+	tvals := fnd.Tree("", -1)
 	if len(tvals) != 1 || tvals[0] != "foo" {
 		t.Fatal("expected tree to return []{\"foo\"}")
 	}
@@ -593,18 +591,18 @@ func TestProtoNodeResolve(t *testing.T) {
 func TestCidRetention(t *testing.T) {
 	ctx := context.Background()
 
-	nd := new(ProtoNode)
+	nd := new(MutableProtoNode)
 	nd.SetData([]byte("fooooo"))
-
-	pref := nd.Cid().Prefix()
+	fnd := finalize(t, nd)
+	pref := fnd.Cid().Prefix()
 	pref.Version = 1
 
-	c2, err := pref.Sum(nd.RawData())
+	c2, err := pref.Sum(fnd.RawData())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	blk, err := blocks.NewBlockWithCid(nd.RawData(), c2)
+	blk, err := blocks.NewBlockWithCid(fnd.RawData(), c2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -670,7 +668,7 @@ func TestGetManyDuplicate(t *testing.T) {
 
 	srv := NewDAGService(dstest.Bserv())
 
-	nd := NodeWithData([]byte("foo"))
+	nd := finalize(t, NodeWithData([]byte("foo")))
 	if err := srv.Add(ctx, nd); err != nil {
 		t.Fatal(err)
 	}
@@ -698,11 +696,11 @@ func TestGetManyDuplicate(t *testing.T) {
 func TestEnumerateAsyncFailsNotFound(t *testing.T) {
 	ctx := context.Background()
 
-	a := NodeWithData([]byte("foo1"))
-	b := NodeWithData([]byte("foo2"))
-	c := NodeWithData([]byte("foo3"))
-	d := NodeWithData([]byte("foo4"))
-	e := NodeWithData([]byte("foo5"))
+	a := finalize(t, NodeWithData([]byte("foo1")))
+	b := finalize(t, NodeWithData([]byte("foo2")))
+	c := finalize(t, NodeWithData([]byte("foo3")))
+	d := finalize(t, NodeWithData([]byte("foo4")))
+	e := finalize(t, NodeWithData([]byte("foo5")))
 
 	ds := dstest.Mock()
 	for _, n := range []ipld.Node{a, b, c} {
@@ -712,7 +710,7 @@ func TestEnumerateAsyncFailsNotFound(t *testing.T) {
 		}
 	}
 
-	parent := new(ProtoNode)
+	parent := new(MutableProtoNode)
 	if err := parent.AddNodeLink("a", a); err != nil {
 		t.Fatal(err)
 	}
@@ -733,13 +731,14 @@ func TestEnumerateAsyncFailsNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := ds.Add(ctx, parent)
+	fparent := finalize(t, parent)
+	err := ds.Add(ctx, fparent)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cset := cid.NewSet()
-	err = Walk(ctx, GetLinksDirect(ds), parent.Cid(), cset.Visit)
+	err = Walk(ctx, GetLinksDirect(ds), fparent.Cid(), cset.Visit)
 	if err == nil {
 		t.Fatal("this should have failed")
 	}
@@ -756,7 +755,7 @@ func TestProgressIndicatorNoChildren(t *testing.T) {
 func testProgressIndicator(t *testing.T, depth int) {
 	ds := dstest.Mock()
 
-	top, numChildren := mkDag(ds, depth)
+	top, numChildren := mkDag(t, ds, depth)
 
 	v := new(ProgressTracker)
 	ctx := v.DeriveContext(context.Background())
@@ -772,27 +771,28 @@ func testProgressIndicator(t *testing.T, depth int) {
 	}
 }
 
-func mkDag(ds ipld.DAGService, depth int) (cid.Cid, int) {
+func mkDag(t *testing.T, ds ipld.DAGService, depth int) (cid.Cid, int) {
 	ctx := context.Background()
 
 	totalChildren := 0
 	f := func() *ProtoNode {
-		p := new(ProtoNode)
+		p := new(MutableProtoNode)
 		buf := make([]byte, 16)
 		rand.Read(buf)
 
 		p.SetData(buf)
-		err := ds.Add(ctx, p)
+		fp := finalize(t, p)
+		err := ds.Add(ctx, fp)
 		if err != nil {
 			panic(err)
 		}
-		return p
+		return fp
 	}
 
 	for i := 0; i < depth; i++ {
 		thisf := f
 		f = func() *ProtoNode {
-			pn := mkNodeWithChildren(thisf, 10)
+			pn := mkNodeWithChildren(t, thisf, 10)
 			err := ds.Add(ctx, pn)
 			if err != nil {
 				panic(err)
@@ -811,8 +811,8 @@ func mkDag(ds ipld.DAGService, depth int) (cid.Cid, int) {
 	return nd.Cid(), totalChildren
 }
 
-func mkNodeWithChildren(getChild func() *ProtoNode, width int) *ProtoNode {
-	cur := new(ProtoNode)
+func mkNodeWithChildren(t *testing.T, getChild func() *ProtoNode, width int) *ProtoNode {
+	cur := new(MutableProtoNode)
 
 	for i := 0; i < width; i++ {
 		c := getChild()
@@ -821,5 +821,5 @@ func mkNodeWithChildren(getChild func() *ProtoNode, width int) *ProtoNode {
 		}
 	}
 
-	return cur
+	return finalize(t, cur)
 }

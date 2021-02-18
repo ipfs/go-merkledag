@@ -106,15 +106,17 @@ func Diff(ctx context.Context, ds ipld.DAGService, a, b ipld.Node) ([]*Change, e
 		return []*Change{}, nil
 	}
 
-	cleanA, okA := a.Copy().(*dag.ProtoNode)
-	cleanB, okB := b.Copy().(*dag.ProtoNode)
-
+	pA, okA := a.(*dag.ProtoNode)
+	pB, okB := b.(*dag.ProtoNode)
 	linksA := a.Links()
 	linksB := b.Links()
 
 	if !okA || !okB || (len(linksA) == 0 && len(linksB) == 0) {
 		return []*Change{{Type: Mod, Before: a.Cid(), After: b.Cid()}}, nil
 	}
+
+	cleanA := pA.Mutable()
+	cleanB := pB.Mutable()
 
 	var out []*Change
 	for _, linkA := range linksA {

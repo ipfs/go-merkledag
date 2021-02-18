@@ -23,43 +23,22 @@ const _ = pb.DoNotUpgradeFileEverItWillChangeYourHashes
 // for now, we use a PBNode intermediate thing.
 // because native go objects are nice.
 
-// unmarshal decodes raw data into a *Node instance.
-// The conversion uses an intermediate PBNode.
-func unmarshal(encodedBytes []byte) (*ProtoNode, error) {
-	nb := dagpb.Type.PBNode.NewBuilder()
-	err := dagpb.RawDecoder(nb, bytes.NewBuffer(encodedBytes))
-	if err != nil {
-		return nil, err
-	}
-	nd := nb.Build()
-	return fromImmutableNode(&immutableProtoNode{encodedBytes, nd.(dagpb.PBNode)}), nil
+func (n *ProtoNode) Mutable() *MutableProtoNode {
+	m := new(MutableProtoNode)
+	m.data = n.Data()
+	m.links = n.Links()
+	m.builder = n.Cid().Prefix()
+	return m
 }
 
-func fromImmutableNode(encoded *immutableProtoNode) *ProtoNode {
-	n := new(ProtoNode)
-	n.encoded = encoded
-	n.data = n.encoded.PBNode.Data.Bytes()
-	links := make([]*format.Link, 0, n.encoded.PBNode.Links.Length())
-	iter := n.encoded.PBNode.Links.Iterator()
-	for !iter.Done() {
-		_, next := iter.Next()
-		link := &format.Link{
-			Name: next.FieldName().Must().String(),
-			Size: uint64(next.FieldTsize().Must().Int()),
-			Cid:  next.FieldHash().Must().Link().(cidlink.Link).Cid,
-		}
-		links = append(links, link)
-	}
-	n.links = links
-	return n
-}
-func (n *ProtoNode) marshalImmutable() (*immutableProtoNode, error) {
+func (m *MutableProtoNode) Finalize() (*ProtoNode, error) {
+	sort.Stable(LinkSlice(m.links)) // keep links sorted
 	nb := dagpb.Type.PBNode.NewBuilder()
 	err := fluent.Recover(func() {
 		fb := fluent.WrapAssembler(nb)
 		fb.CreateMap(-1, func(fmb fluent.MapAssembler) {
-			fmb.AssembleEntry("Links").CreateList(int64(len(n.links)), func(flb fluent.ListAssembler) {
-				for _, link := range n.links {
+			fmb.AssembleEntry("Links").CreateList(int64(len(m.links)), func(flb fluent.ListAssembler) {
+				for _, link := range m.links {
 					flb.AssembleValue().CreateMap(-1, func(fmb fluent.MapAssembler) {
 						if link.Cid.Defined() {
 							hash, err := cid.Cast(link.Cid.Bytes())
@@ -73,7 +52,7 @@ func (n *ProtoNode) marshalImmutable() (*immutableProtoNode, error) {
 					})
 				}
 			})
-			fmb.AssembleEntry("Data").AssignBytes(n.data)
+			fmb.AssembleEntry("Data").AssignBytes(m.data)
 		})
 	})
 	if err != nil {
@@ -85,17 +64,16 @@ func (n *ProtoNode) marshalImmutable() (*immutableProtoNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &immutableProtoNode{newData.Bytes(), nd.(dagpb.PBNode)}, nil
-}
-
-// Marshal encodes a *Node instance into a new byte slice.
-// The conversion uses an intermediate PBNode.
-func (n *ProtoNode) Marshal() ([]byte, error) {
-	enc, err := n.marshalImmutable()
+	raw := newData.Bytes()
+	c, err := m.CidBuilder().Sum(raw)
 	if err != nil {
 		return nil, err
 	}
-	return enc.encoded, nil
+	blk, err := blocks.NewBlockWithCid(raw, c)
+	if err != nil {
+		return nil, err
+	}
+	return &ProtoNode{blk, nd.(dagpb.PBNode)}, nil
 }
 
 // GetPBNode converts *ProtoNode into it's protocol buffer variant.
@@ -103,12 +81,12 @@ func (n *ProtoNode) Marshal() ([]byte, error) {
 // that you call ProtoNode.Copy() before calling ProtoNode.GetPBNode()
 func (n *ProtoNode) GetPBNode() *pb.PBNode {
 	pbn := &pb.PBNode{}
-	if len(n.links) > 0 {
-		pbn.Links = make([]*pb.PBLink, len(n.links))
+	links := n.Links()
+	if len(links) > 0 {
+		pbn.Links = make([]*pb.PBLink, len(links))
 	}
 
-	sort.Stable(LinkSlice(n.links)) // keep links sorted
-	for i, l := range n.links {
+	for i, l := range links {
 		pbn.Links[i] = &pb.PBLink{}
 		pbn.Links[i].Name = &l.Name
 		pbn.Links[i].Tsize = &l.Size
@@ -117,44 +95,42 @@ func (n *ProtoNode) GetPBNode() *pb.PBNode {
 		}
 	}
 
-	if len(n.data) > 0 {
-		pbn.Data = n.data
+	data := n.Data()
+	if len(data) > 0 {
+		pbn.Data = data
 	}
 	return pbn
 }
 
-// EncodeProtobuf returns the encoded raw data version of a Node instance.
-// It may use a cached encoded version, unless the force flag is given.
-func (n *ProtoNode) EncodeProtobuf(force bool) ([]byte, error) {
-	sort.Stable(LinkSlice(n.links)) // keep links sorted
-	if n.encoded == nil || force {
-		n.cached = cid.Undef
-		var err error
-		n.encoded, err = n.marshalImmutable()
-		if err != nil {
-			return nil, err
-		}
+type UnhashedProtoNode struct {
+	encoded []byte
+	node    dagpb.PBNode
+}
+
+func (upn *UnhashedProtoNode) ToProtoNode(builder cid.Builder) (*ProtoNode, error) {
+	c, err := builder.Sum(upn.encoded)
+	if err != nil {
+		return nil, err
 	}
-
-	if !n.cached.Defined() {
-		c, err := n.CidBuilder().Sum(n.encoded.encoded)
-		if err != nil {
-			return nil, err
-		}
-
-		n.cached = c
+	blk, err := blocks.NewBlockWithCid(upn.encoded, c)
+	if err != nil {
+		return nil, err
 	}
-
-	return n.encoded.encoded, nil
+	return &ProtoNode{blk, upn.node}, nil
 }
 
 // DecodeProtobuf decodes raw data and returns a new Node instance.
-func DecodeProtobuf(encoded []byte) (*ProtoNode, error) {
-	n, err := unmarshal(encoded)
+func DecodeProtobuf(encoded []byte) (*UnhashedProtoNode, error) {
+	nb := dagpb.Type.PBNode.NewBuilder()
+	err := dagpb.RawDecoder(nb, bytes.NewBuffer(encoded))
+	if err != nil {
+		return nil, err
+	}
+	nd := nb.Build()
 	if err != nil {
 		return nil, fmt.Errorf("incorrectly formatted merkledag node: %s", err)
 	}
-	return n, nil
+	return &UnhashedProtoNode{encoded, nd.(dagpb.PBNode)}, nil
 }
 
 // DecodeProtobufBlock is a block decoder for protobuf IPLD nodes conforming to
@@ -173,9 +149,7 @@ func DecodeProtobufBlock(b blocks.Block) (format.Node, error) {
 		return nil, fmt.Errorf("failed to decode Protocol Buffers: %v", err)
 	}
 
-	decnd.cached = c
-	decnd.builder = c.Prefix()
-	return decnd, nil
+	return &ProtoNode{b, decnd.node}, nil
 }
 
 // Type assertion

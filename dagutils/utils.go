@@ -59,7 +59,7 @@ func (e *Editor) GetDagService() ipld.DAGService {
 	return e.tmp
 }
 
-func addLink(ctx context.Context, ds ipld.DAGService, root *dag.ProtoNode, childname string, childnd ipld.Node) (*dag.ProtoNode, error) {
+func addLink(ctx context.Context, ds ipld.DAGService, orig *dag.ProtoNode, root *dag.MutableProtoNode, childname string, childnd ipld.Node) (*dag.ProtoNode, error) {
 	if childname == "" {
 		return nil, errors.New("cannot create link with no name")
 	}
@@ -70,7 +70,9 @@ func addLink(ctx context.Context, ds ipld.DAGService, root *dag.ProtoNode, child
 		return nil, err
 	}
 
-	_ = ds.Remove(ctx, root.Cid())
+	if orig != nil {
+		_ = ds.Remove(ctx, orig.Cid())
+	}
 
 	// ensure no link with that name already exists
 	_ = root.RemoveNodeLink(childname) // ignore error, only option is ErrNotFound
@@ -79,16 +81,20 @@ func addLink(ctx context.Context, ds ipld.DAGService, root *dag.ProtoNode, child
 		return nil, err
 	}
 
-	if err := ds.Add(ctx, root); err != nil {
+	nd, err := root.Finalize()
+	if err != nil {
 		return nil, err
 	}
-	return root, nil
+	if err := ds.Add(ctx, nd); err != nil {
+		return nil, err
+	}
+	return nd, nil
 }
 
 // InsertNodeAtPath inserts a new node in the tree and replaces the current root with the new one.
-func (e *Editor) InsertNodeAtPath(ctx context.Context, pth string, toinsert ipld.Node, create func() *dag.ProtoNode) error {
+func (e *Editor) InsertNodeAtPath(ctx context.Context, pth string, toinsert ipld.Node, create func() *dag.MutableProtoNode) error {
 	splpath := strings.Split(pth, "/")
-	nd, err := e.insertNodeAtPath(ctx, e.root, splpath, toinsert, create)
+	nd, err := e.insertNodeAtPath(ctx, e.root, e.root.Mutable(), splpath, toinsert, create)
 	if err != nil {
 		return err
 	}
@@ -96,35 +102,47 @@ func (e *Editor) InsertNodeAtPath(ctx context.Context, pth string, toinsert ipld
 	return nil
 }
 
-func (e *Editor) insertNodeAtPath(ctx context.Context, root *dag.ProtoNode, path []string, toinsert ipld.Node, create func() *dag.ProtoNode) (*dag.ProtoNode, error) {
-	if len(path) == 1 {
-		return addLink(ctx, e.tmp, root, path[0], toinsert)
+func (e *Editor) getLinkedChild(ctx context.Context, orig *dag.ProtoNode, field string, create func() *dag.MutableProtoNode) (*dag.ProtoNode, *dag.MutableProtoNode, error) {
+	if orig == nil {
+		return nil, create(), nil
 	}
-
-	nd, err := root.GetLinkedProtoNode(ctx, e.tmp, path[0])
+	nd, err := orig.GetLinkedProtoNode(ctx, e.tmp, field)
 	if err != nil {
 		// if 'create' is true, we create directories on the way down as needed
 		if err == dag.ErrLinkNotFound && create != nil {
-			nd = create()
-			err = nil // no longer an error case
+			return nil, create(), nil
 		} else if err == ipld.ErrNotFound {
 			// try finding it in our source dagstore
-			nd, err = root.GetLinkedProtoNode(ctx, e.src, path[0])
+			nd, err = orig.GetLinkedProtoNode(ctx, e.src, field)
 		}
 
 		// if we receive an ErrNotFound, then our second 'GetLinkedNode' call
 		// also fails, we want to error out
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
+	return nd, nd.Mutable(), nil
+}
 
-	ndprime, err := e.insertNodeAtPath(ctx, nd, path[1:], toinsert, create)
+func (e *Editor) insertNodeAtPath(ctx context.Context, orig *dag.ProtoNode, root *dag.MutableProtoNode, path []string, toinsert ipld.Node, create func() *dag.MutableProtoNode) (*dag.ProtoNode, error) {
+	if len(path) == 1 {
+		return addLink(ctx, e.tmp, orig, root, path[0], toinsert)
+	}
+
+	nd, mnd, err := e.getLinkedChild(ctx, orig, path[0], create)
 	if err != nil {
 		return nil, err
 	}
 
-	_ = e.tmp.Remove(ctx, root.Cid())
+	ndprime, err := e.insertNodeAtPath(ctx, nd, mnd, path[1:], toinsert, create)
+	if err != nil {
+		return nil, err
+	}
+
+	if orig != nil {
+		_ = e.tmp.Remove(ctx, orig.Cid())
+	}
 
 	_ = root.RemoveNodeLink(path[0])
 	err = root.AddNodeLink(path[0], ndprime)
@@ -132,12 +150,16 @@ func (e *Editor) insertNodeAtPath(ctx context.Context, root *dag.ProtoNode, path
 		return nil, err
 	}
 
-	err = e.tmp.Add(ctx, root)
+	final, err := root.Finalize()
+	if err != nil {
+		return nil, err
+	}
+	err = e.tmp.Add(ctx, final)
 	if err != nil {
 		return nil, err
 	}
 
-	return root, nil
+	return final, nil
 }
 
 // RmLink removes the link with the given name and updates the root node of
@@ -152,20 +174,15 @@ func (e *Editor) RmLink(ctx context.Context, pth string) error {
 	return nil
 }
 
-func (e *Editor) rmLink(ctx context.Context, root *dag.ProtoNode, path []string) (*dag.ProtoNode, error) {
+func (e *Editor) withLinkRemoved(ctx context.Context, root *dag.ProtoNode, path []string) (*dag.MutableProtoNode, error) {
 	if len(path) == 1 {
+		mutable := root.Mutable()
 		// base case, remove node in question
-		err := root.RemoveNodeLink(path[0])
+		err := mutable.RemoveNodeLink(path[0])
 		if err != nil {
 			return nil, err
 		}
-
-		err = e.tmp.Add(ctx, root)
-		if err != nil {
-			return nil, err
-		}
-
-		return root, nil
+		return mutable, nil
 	}
 
 	// search for node in both tmp dagstore and source dagstore
@@ -185,18 +202,32 @@ func (e *Editor) rmLink(ctx context.Context, root *dag.ProtoNode, path []string)
 
 	_ = e.tmp.Remove(ctx, root.Cid())
 
-	_ = root.RemoveNodeLink(path[0])
-	err = root.AddNodeLink(path[0], nnode)
+	mutable := root.Mutable()
+	_ = mutable.RemoveNodeLink(path[0])
+	err = mutable.AddNodeLink(path[0], nnode)
+	if err != nil {
+		return nil, err
+	}
+	return mutable, nil
+}
+
+func (e *Editor) rmLink(ctx context.Context, root *dag.ProtoNode, path []string) (*dag.ProtoNode, error) {
+	mutable, err := e.withLinkRemoved(ctx, root, path)
 	if err != nil {
 		return nil, err
 	}
 
-	err = e.tmp.Add(ctx, root)
+	final, err := mutable.Finalize()
 	if err != nil {
 		return nil, err
 	}
 
-	return root, nil
+	err = e.tmp.Add(ctx, final)
+	if err != nil {
+		return nil, err
+	}
+
+	return final, nil
 }
 
 // Finalize writes the new DAG to the given DAGService and returns the modified

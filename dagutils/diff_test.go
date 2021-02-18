@@ -11,10 +11,10 @@ import (
 )
 
 func TestMergeDiffs(t *testing.T) {
-	node1 := dag.NodeWithData([]byte("one"))
-	node2 := dag.NodeWithData([]byte("two"))
-	node3 := dag.NodeWithData([]byte("three"))
-	node4 := dag.NodeWithData([]byte("four"))
+	node1 := finalize(t, dag.NodeWithData([]byte("one")))
+	node2 := finalize(t, dag.NodeWithData([]byte("two")))
+	node3 := finalize(t, dag.NodeWithData([]byte("three")))
+	node4 := finalize(t, dag.NodeWithData([]byte("four")))
 
 	changesA := []*Change{
 		{Add, "one", cid.Cid{}, node1.Cid()},
@@ -73,19 +73,21 @@ func TestDiff(t *testing.T) {
 	ctx := context.Background()
 	ds := mdtest.Mock()
 
-	rootA := &dag.ProtoNode{}
-	rootB := &dag.ProtoNode{}
+	mrootA := &dag.MutableProtoNode{}
+	mrootB := &dag.MutableProtoNode{}
 
-	child1 := dag.NodeWithData([]byte("one"))
-	child2 := dag.NodeWithData([]byte("two"))
-	child3 := dag.NodeWithData([]byte("three"))
-	child4 := dag.NodeWithData([]byte("four"))
+	child1 := finalize(t, dag.NodeWithData([]byte("one")))
+	child2 := finalize(t, dag.NodeWithData([]byte("two")))
+	child3 := finalize(t, dag.NodeWithData([]byte("three")))
+	child4 := finalize(t, dag.NodeWithData([]byte("four")))
 
-	rootA.AddNodeLink("one", child1)
-	rootA.AddNodeLink("two", child2)
+	mrootA.AddNodeLink("one", child1)
+	mrootA.AddNodeLink("two", child2)
+	rootA := finalize(t, mrootA)
 
-	rootB.AddNodeLink("one", child3)
-	rootB.AddNodeLink("four", child4)
+	mrootB.AddNodeLink("one", child3)
+	mrootB.AddNodeLink("four", child4)
+	rootB := finalize(t, mrootB)
 
 	nodes := []ipld.Node{child1, child2, child3, child4, rootA, rootB}
 	if err := ds.AddMany(ctx, nodes); err != nil {
@@ -124,4 +126,12 @@ func TestDiff(t *testing.T) {
 			t.Error("unexpected diff change before")
 		}
 	}
+}
+
+func finalize(t *testing.T, a *dag.MutableProtoNode) *dag.ProtoNode {
+	nd, err := a.Finalize()
+	if err != nil {
+		t.Error(t, err)
+	}
+	return nd
 }
