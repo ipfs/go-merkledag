@@ -114,6 +114,8 @@ github.com/ipfs/go-ipld-legacy v0.0.0-20210312013207-460295eb04ed h1:x9Ami47jsVR
 github.com/ipfs/go-ipld-legacy v0.0.0-20210312013207-460295eb04ed/go.mod h1:1wv+3vTMw6axVoAJFisWzJ7tewUnrcr6AxymcZrd83k=
 github.com/ipfs/go-ipld-legacy v0.0.0-20210312014519-2895f54096d5 h1:5RLoebNIGmHmlcdTSdVrXGRF5sLy/wTiCUgWMeJvIII=
 github.com/ipfs/go-ipld-legacy v0.0.0-20210312014519-2895f54096d5/go.mod h1:1wv+3vTMw6axVoAJFisWzJ7tewUnrcr6AxymcZrd83k=
+github.com/ipfs/go-ipld-legacy v0.0.0-20210312161848-de76551dd090 h1:YsWOudZ/MqdEruWex6UwfK1kufvStP8JvF9Q1KMNaRg=
+github.com/ipfs/go-ipld-legacy v0.0.0-20210312161848-de76551dd090/go.mod h1:Rib8745w81jCpfQIqhyFJZfF8RY6ywVzxC4h4Kkln+0=
 github.com/ipfs/go-log v0.0.1 h1:9XTUN/rW64BCG1YhPK9Hoy3q8nr4gOmHHBpgFdfw6Lc=
 github.com/ipfs/go-log v0.0.1/go.mod h1:kL1d2/hzSpI0thNYjiKfjanbVNU+IIGA/WnNESY9leM=
 github.com/ipfs/go-metrics-interface v0.0.1 h1:j+cpbjYvu4R8zbleSs36gvB7jR+wsL2fGD6n0jO4kdg=
@@ -136,6 +138,8 @@ github.com/ipld/go-ipld-prime v0.7.1-0.20210312003417-709e4c1debae h1:EPcDBs1T1q
 github.com/ipld/go-ipld-prime v0.7.1-0.20210312003417-709e4c1debae/go.mod h1:k++jmk6A1k3gXVnW0XF1M1xBKnk7fGEjC2QDj9Zgvyg=
 github.com/ipld/go-ipld-prime v0.7.1-0.20210312004928-8a500e6b8a62 h1:rYzj0eh2b6VWuF3yRdWugOcItYSI7Z4buf8Q9zxW1Yo=
 github.com/ipld/go-ipld-prime v0.7.1-0.20210312004928-8a500e6b8a62/go.mod h1:ZwznT3awHhuBoB0SgGxSo8SZEg6XbQtsZ6WahL9r9z0=
+github.com/ipld/go-ipld-prime v0.7.1-0.20210312161623-265620eb98f0 h1:0KOxYsU8rDH677vQ5OqLcZF+kBT41Nr7t/fNI4gGEmg=
+github.com/ipld/go-ipld-prime v0.7.1-0.20210312161623-265620eb98f0/go.mod h1:ZwznT3awHhuBoB0SgGxSo8SZEg6XbQtsZ6WahL9r9z0=
 github.com/jackpal/gateway v1.0.5 h1:qzXWUJfuMdlLMtt0a3Dgt+xkWQiA5itDEITVJtuSwMc=
 github.com/jackpal/gateway v1.0.5/go.mod h1:lTpwd4ACLXmpyiCTRtfiNyVnUmqT9RivzCDQetPfnjA=
 github.com/jackpal/go-nat-pmp v1.0.1 h1:i0LektDkO1QlrTm/cSuP+PyBCDnYvjPLGl4LdWEMiaA=
