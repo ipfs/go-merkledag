@@ -13,10 +13,12 @@ require (
 	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/ipfs/go-ipld-legacy v0.0.0-20210325015318-9799f2cffab0
-	github.com/ipld/go-codec-dagpb v1.2.0
+	github.com/ipld/go-codec-dagpb v1.2.1-0.20210330082435-8ec6b0fbad18
 	github.com/ipld/go-ipld-prime v0.9.1-0.20210324083106-dc342a9917db
 	github.com/multiformats/go-multihash v0.0.15
+	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e // indirect
 	github.com/smartystreets/assertions v1.0.0 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
 
 go 1.14
