@@ -17,4 +17,4 @@ require (
 	github.com/multiformats/go-multihash v0.0.15
 )
 
-go 1.15
+go 1.16
