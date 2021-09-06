@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
@@ -41,15 +42,15 @@ type immutableProtoNode struct {
 // this mutable protonode implementation is needed to support go-unixfs,
 // the only library that implements both read and write for UnixFS v1.
 type ProtoNode struct {
+	mu sync.RWMutex
+
 	links []*format.Link
 	data  []byte
 
-	// cache encoded/marshaled value
-	encoded *immutableProtoNode
-	cached  cid.Cid
-
-	// builder specifies cid version and hashing function
-	builder cid.Builder
+	// caches for reified encoded/marshaled value and its builder/cid
+	imNode     *immutableProtoNode
+	cidBuilder cid.Builder
+	cid        cid.Cid
 }
 
 var v0CidPrefix = cid.Prefix{
@@ -86,21 +87,32 @@ func PrefixForCidVersion(version int) (cid.Prefix, error) {
 
 // CidBuilder returns the CID Builder for this ProtoNode, it is never nil
 func (n *ProtoNode) CidBuilder() cid.Builder {
-	if n.builder == nil {
-		n.builder = v0CidPrefix
+	n.mu.RLock()
+	cb := n.cidBuilder
+	n.mu.RUnlock()
+
+	if cb != nil {
+		return cb
 	}
-	return n.builder
+
+	n.mu.Lock()
+	n.cidBuilder = v0CidPrefix
+	n.mu.Unlock()
+	return v0CidPrefix
 }
 
 // SetCidBuilder sets the CID builder if it is non nil, if nil then it
 // is reset to the default value
 func (n *ProtoNode) SetCidBuilder(builder cid.Builder) {
+	n.mu.Lock()
 	if builder == nil {
-		n.builder = v0CidPrefix
+		n.cidBuilder = v0CidPrefix
 	} else {
-		n.builder = builder.WithCodec(cid.DagProtobuf)
-		n.cached = cid.Undef
+		n.cidBuilder = builder.WithCodec(cid.DagProtobuf)
+		// we could not have built without a builder
+		n.cid = cid.Undef
 	}
+	n.mu.Unlock()
 }
 
 // LinkSlice is a slice of format.Links
@@ -131,19 +143,25 @@ func (n *ProtoNode) AddNodeLink(name string, that format.Node) error {
 
 // AddRawLink adds a copy of a link to this node
 func (n *ProtoNode) AddRawLink(name string, l *format.Link) error {
-	n.encoded = nil
+	n.mu.Lock()
+
+	n.imNode = nil
 	n.links = append(n.links, &format.Link{
 		Name: name,
 		Size: l.Size,
 		Cid:  l.Cid,
 	})
 
+	n.mu.Unlock()
 	return nil
 }
 
 // RemoveNodeLink removes a link on this node by the given name.
 func (n *ProtoNode) RemoveNodeLink(name string) error {
-	n.encoded = nil
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	n.imNode = nil
 
 	ref := n.links[:0]
 	found := false
@@ -161,12 +179,14 @@ func (n *ProtoNode) RemoveNodeLink(name string) error {
 	}
 
 	n.links = ref
-
 	return nil
 }
 
 // GetNodeLink returns a copy of the link with the given name.
 func (n *ProtoNode) GetNodeLink(name string) (*format.Link, error) {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
 	for _, l := range n.links {
 		if l.Name == name {
 			return &format.Link{
@@ -208,6 +228,8 @@ func (n *ProtoNode) GetLinkedNode(ctx context.Context, ds format.DAGService, nam
 // NOTE: Does not make copies of Node objects in the links.
 func (n *ProtoNode) Copy() format.Node {
 	nnode := new(ProtoNode)
+	n.mu.RLock()
+
 	if len(n.data) > 0 {
 		nnode.data = make([]byte, len(n.data))
 		copy(nnode.data, n.data)
@@ -218,8 +240,9 @@ func (n *ProtoNode) Copy() format.Node {
 		copy(nnode.links, n.links)
 	}
 
-	nnode.builder = n.builder
+	nnode.cidBuilder = n.cidBuilder
 
+	n.mu.RUnlock()
 	return nnode
 }
 
@@ -233,14 +256,18 @@ func (n *ProtoNode) RawData() []byte {
 
 // Data returns the data stored by this node.
 func (n *ProtoNode) Data() []byte {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
 	return n.data
 }
 
 // SetData stores data in this nodes.
 func (n *ProtoNode) SetData(d []byte) {
-	n.encoded = nil
-	n.cached = cid.Undef
+	n.mu.Lock()
+	n.imNode = nil
+	n.cid = cid.Undef
 	n.data = d
+	n.mu.Unlock()
 }
 
 // UpdateNodeLink return a copy of the node with the link name set to point to
@@ -261,9 +288,11 @@ func (n *ProtoNode) Size() (uint64, error) {
 	}
 
 	s := uint64(len(b))
+	n.mu.RLock()
 	for _, l := range n.links {
 		s += l.Size
 	}
+	n.mu.RUnlock()
 	return s, nil
 }
 
@@ -279,14 +308,20 @@ func (n *ProtoNode) Stat() (*format.NodeStat, error) {
 		return nil, err
 	}
 
-	return &format.NodeStat{
-		Hash:           n.Cid().String(),
+	c := n.Cid()
+
+	n.mu.RLock()
+	ns := &format.NodeStat{
+		Hash:           c.String(),
 		NumLinks:       len(n.links),
 		BlockSize:      len(enc),
 		LinksSize:      len(enc) - len(n.data), // includes framing.
 		DataSize:       len(n.data),
 		CumulativeSize: int(cumSize),
-	}, nil
+	}
+	n.mu.RUnlock()
+
+	return ns, nil
 }
 
 // Loggable implements the ipfs/go-log.Loggable interface.
@@ -308,17 +343,22 @@ func (n *ProtoNode) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	n.mu.Lock()
 	n.data = s.Data
 	n.links = s.Links
+	n.mu.Unlock()
+
 	return nil
 }
 
 // MarshalJSON returns a JSON representation of the node.
 func (n *ProtoNode) MarshalJSON() ([]byte, error) {
+	n.mu.RLock()
 	out := map[string]interface{}{
 		"data":  n.data,
 		"links": n.links,
 	}
+	n.mu.RUnlock()
 
 	return json.Marshal(out)
 }
@@ -326,18 +366,25 @@ func (n *ProtoNode) MarshalJSON() ([]byte, error) {
 // Cid returns the node's Cid, calculated according to its prefix
 // and raw data contents.
 func (n *ProtoNode) Cid() cid.Cid {
-	if n.encoded != nil && n.cached.Defined() {
-		return n.cached
+	n.mu.RLock()
+	if n.imNode != nil && n.cid.Defined() {
+		defer n.mu.RUnlock()
+		return n.cid
 	}
+	n.mu.RUnlock()
 
-	c, err := n.CidBuilder().Sum(n.RawData())
+	data := n.RawData()
+	c, err := n.CidBuilder().Sum(data)
 	if err != nil {
 		// programmer error
-		err = fmt.Errorf("invalid CID of length %d: %x: %v", len(n.RawData()), n.RawData(), err)
+		err = fmt.Errorf("invalid CID of length %d: %x: %v", len(data), data, err)
 		panic(err)
 	}
 
-	n.cached = c
+	n.mu.Lock()
+	n.cid = c
+	n.mu.Unlock()
+
 	return c
 }
 
@@ -355,17 +402,21 @@ func (n *ProtoNode) Multihash() mh.Multihash {
 		panic(err)
 	}
 
-	return n.cached.Hash()
+	return n.Cid().Hash()
 }
 
 // Links returns the node links.
 func (n *ProtoNode) Links() []*format.Link {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
 	return n.links
 }
 
 // SetLinks replaces the node links with the given ones.
 func (n *ProtoNode) SetLinks(links []*format.Link) {
+	n.mu.Lock()
 	n.links = links
+	n.mu.Unlock()
 }
 
 // Resolve is an alias for ResolveLink.
@@ -397,10 +448,13 @@ func (n *ProtoNode) Tree(p string, depth int) []string {
 		return nil
 	}
 
+	n.mu.RLock()
 	out := make([]string, 0, len(n.links))
 	for _, lnk := range n.links {
 		out = append(out, lnk.Name)
 	}
+	n.mu.RUnlock()
+
 	return out
 }
 
@@ -411,8 +465,8 @@ func ProtoNodeConverter(b blocks.Block, nd ipld.Node) (legacy.UniversalNode, err
 	}
 	encoded := &immutableProtoNode{b.RawData(), pbNode}
 	pn := fromImmutableNode(encoded)
-	pn.cached = b.Cid()
-	pn.builder = b.Cid().Prefix()
+	pn.cid = b.Cid()
+	pn.cidBuilder = b.Cid().Prefix()
 	return pn, nil
 }
 

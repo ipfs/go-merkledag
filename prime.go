@@ -18,7 +18,7 @@ import (
 // Most other handling of a node requires first switching upon the kind.
 func (n *ProtoNode) Kind() ipld.Kind {
 	_, _ = n.EncodeProtobuf(false)
-	return n.encoded.Kind()
+	return n.imNode.Kind()
 }
 
 // LookupByString looks up a child object in this node and returns it.
@@ -34,7 +34,7 @@ func (n *ProtoNode) LookupByString(key string) (ipld.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.encoded.LookupByString(key)
+	return n.imNode.LookupByString(key)
 }
 
 // LookupByNode is the equivalent of LookupByString, but takes a reified Node
@@ -53,7 +53,7 @@ func (n *ProtoNode) LookupByNode(key ipld.Node) (ipld.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.encoded.LookupByNode(key)
+	return n.imNode.LookupByNode(key)
 }
 
 // LookupByIndex is the equivalent of LookupByString but for indexing into a list.
@@ -69,7 +69,7 @@ func (n *ProtoNode) LookupByIndex(idx int64) (ipld.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.encoded.LookupByIndex(idx)
+	return n.imNode.LookupByIndex(idx)
 }
 
 // LookupBySegment is will act as either LookupByString or LookupByIndex,
@@ -83,7 +83,7 @@ func (n *ProtoNode) LookupBySegment(seg ipld.PathSegment) (ipld.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.encoded.LookupBySegment(seg)
+	return n.imNode.LookupBySegment(seg)
 }
 
 // Note that when using codegenerated types, there may be a fifth variant
@@ -97,7 +97,7 @@ func (n *ProtoNode) LookupBySegment(seg ipld.PathSegment) (ipld.Node, error) {
 // before itr.Done becomes true.
 func (n *ProtoNode) MapIterator() ipld.MapIterator {
 	_, _ = n.EncodeProtobuf(false)
-	return n.encoded.MapIterator()
+	return n.imNode.MapIterator()
 }
 
 // ListIterator returns an iterator which yields key-value pairs
@@ -109,14 +109,14 @@ func (n *ProtoNode) MapIterator() ipld.MapIterator {
 // before itr.Done becomes true.
 func (n *ProtoNode) ListIterator() ipld.ListIterator {
 	_, _ = n.EncodeProtobuf(false)
-	return n.encoded.ListIterator()
+	return n.imNode.ListIterator()
 }
 
 // Length returns the length of a list, or the number of entries in a map,
 // or -1 if the node is not of list nor map kind.
 func (n *ProtoNode) Length() int64 {
 	_, _ = n.EncodeProtobuf(false)
-	return n.encoded.Length()
+	return n.imNode.Length()
 }
 
 // Absent nodes are returned when traversing a struct field that is
@@ -132,12 +132,12 @@ func (n *ProtoNode) Length() int64 {
 // when it may be important to handle absent values distinctly.
 func (n *ProtoNode) IsAbsent() bool {
 	_, _ = n.EncodeProtobuf(false)
-	return n.encoded.IsAbsent()
+	return n.imNode.IsAbsent()
 }
 
 func (n *ProtoNode) IsNull() bool {
 	_, _ = n.EncodeProtobuf(false)
-	return n.encoded.IsNull()
+	return n.imNode.IsNull()
 }
 
 func (n *ProtoNode) AsBool() (bool, error) {
@@ -145,7 +145,7 @@ func (n *ProtoNode) AsBool() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return n.encoded.AsBool()
+	return n.imNode.AsBool()
 }
 
 func (n *ProtoNode) AsInt() (int64, error) {
@@ -153,7 +153,7 @@ func (n *ProtoNode) AsInt() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return n.encoded.AsInt()
+	return n.imNode.AsInt()
 }
 
 func (n *ProtoNode) AsFloat() (float64, error) {
@@ -161,7 +161,7 @@ func (n *ProtoNode) AsFloat() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return n.encoded.AsFloat()
+	return n.imNode.AsFloat()
 }
 
 func (n *ProtoNode) AsString() (string, error) {
@@ -169,7 +169,7 @@ func (n *ProtoNode) AsString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return n.encoded.AsString()
+	return n.imNode.AsString()
 }
 
 func (n *ProtoNode) AsBytes() ([]byte, error) {
@@ -177,7 +177,7 @@ func (n *ProtoNode) AsBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.encoded.AsBytes()
+	return n.imNode.AsBytes()
 }
 
 func (n *ProtoNode) AsLink() (ipld.Link, error) {
@@ -185,7 +185,7 @@ func (n *ProtoNode) AsLink() (ipld.Link, error) {
 	if err != nil {
 		return nil, err
 	}
-	return n.encoded.AsLink()
+	return n.imNode.AsLink()
 }
 
 // Prototype returns a NodePrototype which can describe some properties of this node's implementation,

@@ -117,6 +117,31 @@ func TestNode(t *testing.T) {
 	printn("beep boop", n3)
 }
 
+// this won't fail under normal runs but *will* fail under `go test -race`
+func TestConcurrentReification(t *testing.T) {
+
+	expectCid := NodeWithData([]byte("beep")).Cid()
+
+	var wg sync.WaitGroup
+	nd := NodeWithData([]byte("beep"))
+	sem := make(chan struct{})
+	for i := 0; i < 128; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-sem
+			c := nd.Cid()
+			if !c.Equals(expectCid) {
+				t.Errorf("reification mismatch: got cid %s but expected %s", c, expectCid)
+			}
+		}()
+	}
+
+	// kick em off
+	close(sem)
+	wg.Wait()
+}
+
 func SubtestNodeStat(t *testing.T, n *ProtoNode) {
 	enc, err := n.EncodeProtobuf(true)
 	if err != nil {

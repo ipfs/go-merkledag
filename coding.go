@@ -36,15 +36,15 @@ func unmarshal(encodedBytes []byte) (*ProtoNode, error) {
 
 func fromImmutableNode(encoded *immutableProtoNode) *ProtoNode {
 	n := new(ProtoNode)
-	n.encoded = encoded
-	if n.encoded.PBNode.Data.Exists() {
-		n.data = n.encoded.PBNode.Data.Must().Bytes()
+	n.imNode = encoded
+	if n.imNode.PBNode.Data.Exists() {
+		n.data = n.imNode.PBNode.Data.Must().Bytes()
 	}
-	numLinks := n.encoded.PBNode.Links.Length()
+	numLinks := n.imNode.PBNode.Links.Length()
 	n.links = make([]*format.Link, numLinks)
 	linkAllocs := make([]format.Link, numLinks)
 	for i := int64(0); i < numLinks; i++ {
-		next := n.encoded.PBNode.Links.Lookup(i)
+		next := n.imNode.PBNode.Links.Lookup(i)
 		name := ""
 		if next.FieldName().Exists() {
 			name = next.FieldName().Must().String()
@@ -134,25 +134,29 @@ func (n *ProtoNode) GetPBNode() *pb.PBNode {
 // It may use a cached encoded version, unless the force flag is given.
 func (n *ProtoNode) EncodeProtobuf(force bool) ([]byte, error) {
 	sort.Stable(LinkSlice(n.links)) // keep links sorted
-	if n.encoded == nil || force {
-		n.cached = cid.Undef
-		var err error
-		n.encoded, err = n.marshalImmutable()
-		if err != nil {
-			return nil, err
+
+	if !force {
+		n.mu.RLock()
+		if n.imNode != nil {
+			enc := n.imNode.encoded
+			n.mu.RUnlock()
+			return enc, nil
 		}
+		n.mu.RUnlock()
 	}
 
-	if !n.cached.Defined() {
-		c, err := n.CidBuilder().Sum(n.encoded.encoded)
-		if err != nil {
-			return nil, err
-		}
+	// got to rebuild, force or not
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
-		n.cached = c
+	n.cid = cid.Undef
+	var err error
+	n.imNode, err = n.marshalImmutable()
+	if err != nil {
+		return nil, err
 	}
 
-	return n.encoded.encoded, nil
+	return n.imNode.encoded, nil
 }
 
 // DecodeProtobuf decodes raw data and returns a new Node instance.
@@ -180,8 +184,8 @@ func DecodeProtobufBlock(b blocks.Block) (format.Node, error) {
 		return nil, fmt.Errorf("failed to decode Protocol Buffers: %v", err)
 	}
 
-	decnd.cached = c
-	decnd.builder = c.Prefix()
+	decnd.cid = c
+	decnd.cidBuilder = c.Prefix()
 	return decnd, nil
 }
 
