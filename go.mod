@@ -15,6 +15,7 @@ require (
 	github.com/ipld/go-codec-dagpb v1.3.0
 	github.com/ipld/go-ipld-prime v0.11.0
 	github.com/multiformats/go-multihash v0.0.15
+	github.com/stretchr/testify v1.7.0
 )
 
 go 1.16

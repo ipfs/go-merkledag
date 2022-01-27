@@ -1,9 +1,12 @@
 package dagutils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path"
+	"sort"
+	"strings"
 
 	"github.com/ipfs/go-cid"
 	ipld "github.com/ipfs/go-ipld-format"
@@ -100,47 +103,64 @@ func ApplyChange(ctx context.Context, ds ipld.DAGService, nd *dag.ProtoNode, cs 
 // It only traverses links in the following cases:
 // 1. two node's links number are greater than 0.
 // 2. both of two nodes are ProtoNode.
+// 3. there is only one link under the name being traversed.
 // Otherwise, it compares the cid and emits a Mod change object.
-func Diff(ctx context.Context, ds ipld.DAGService, a, b ipld.Node) ([]*Change, error) {
+func Diff(ctx context.Context, ds ipld.DAGService, a, b *dag.ProtoNode) ([]*Change, error) {
+	// Short-circuit the identity case to avoid inspecting links.
 	if a.Cid() == b.Cid() {
 		return []*Change{}, nil
 	}
 
-	cleanA, okA := a.Copy().(*dag.ProtoNode)
-	cleanB, okB := b.Copy().(*dag.ProtoNode)
-
-	linksA := a.Links()
-	linksB := b.Links()
-
-	if !okA || !okB || (len(linksA) == 0 && len(linksB) == 0) {
-		return []*Change{{Type: Mod, Before: a.Cid(), After: b.Cid()}}, nil
+	var out []*Change
+	if !bytes.Equal(a.Data(), b.Data()) {
+		// FIXME: This is a very dirty way of reporting a difference in Data()
+		//  but the current `Change` API doesn't support anything but links.
+		out = append(out, &Change{Type: Mod, Path: "<NODE-DATA>", Before: a.Cid(), After: b.Cid()})
 	}
 
-	var out []*Change
-	for _, linkA := range linksA {
-		linkB, _, err := b.ResolveLink([]string{linkA.Name})
-		if err != nil {
+	allGroupsA := extractSortedGroupedLinks(a)
+	allGroupsB := extractSortedGroupedLinks(b)
+	// FIXME: We don't need the `sameNameLinks` abstraction and the preprocessing
+	//  of grouping links. We can just process them in one pass with smarter index
+	//  range manipulation, but for a first pass this is more clear.
+
+	groupIdxA := 0
+	groupIdxB := 0
+	for groupIdxA < len(allGroupsA) && groupIdxB < len(allGroupsB) {
+		groupA := allGroupsA[groupIdxA]
+		groupB := allGroupsB[groupIdxB]
+
+		nameCmp := strings.Compare(groupA.name, groupB.name)
+		// Name mismatch: advance the group that is lexicographically behind.
+		if nameCmp < 0 {
+			out = append(out, groupA.reportAsChange(Remove)...)
+			groupIdxA++
+			continue
+		} else if nameCmp > 0 {
+			out = append(out, groupB.reportAsChange(Add)...)
+			groupIdxB++
 			continue
 		}
 
-		cleanA.RemoveNodeLink(linkA.Name)
-		cleanB.RemoveNodeLink(linkA.Name)
+		// Name match. No matter how we process the groups we should advance both A/B.
+		groupIdxA++
+		groupIdxB++
 
-		if linkA.Cid == linkB.Cid {
+		// First filter under this name link CIDs present in both groups.
+		groupA, groupB = filterCIDMatches(groupA, groupB)
+
+		if !groupA.singleLink() || !groupB.singleLink() {
+			// More than one link under the same name, just report both groups
+			// as remove/adds.
+			out = append(out, groupA.reportAsChange(Remove)...)
+			out = append(out, groupB.reportAsChange(Add)...)
 			continue
 		}
 
-		nodeA, err := linkA.GetNode(ctx, ds)
-		if err != nil {
-			return nil, err
-		}
-
-		nodeB, err := linkB.GetNode(ctx, ds)
-		if err != nil {
-			return nil, err
-		}
-
-		sub, err := Diff(ctx, ds, nodeA, nodeB)
+		// Single links with different CIDs, go deeper in the diff..
+		linkA := groupA.list[0]
+		linkB := groupB.list[0]
+		sub, err := diffLinks(ctx, ds, linkA, linkB)
 		if err != nil {
 			return nil, err
 		}
@@ -148,19 +168,116 @@ func Diff(ctx context.Context, ds ipld.DAGService, a, b ipld.Node) ([]*Change, e
 		for _, c := range sub {
 			c.Path = path.Join(linkA.Name, c.Path)
 		}
-
 		out = append(out, sub...)
 	}
 
-	for _, l := range cleanA.Links() {
-		out = append(out, &Change{Type: Remove, Path: l.Name, Before: l.Cid})
+	// We exhausted at least one group, report the other as missing.
+	for _, groupA := range allGroupsA[groupIdxA:] {
+		out = append(out, groupA.reportAsChange(Remove)...)
 	}
-
-	for _, l := range cleanB.Links() {
-		out = append(out, &Change{Type: Add, Path: l.Name, After: l.Cid})
+	for _, groupB := range allGroupsB[groupIdxB:] {
+		out = append(out, groupB.reportAsChange(Add)...)
 	}
 
 	return out, nil
+}
+
+// FIXME(BLOCKING): Implement.
+func filterCIDMatches(a *sameNameLinks, b *sameNameLinks) (*sameNameLinks, *sameNameLinks) {
+	return a, b
+}
+
+// Wrapper to Diff retrieving nodes from links.
+func diffLinks(ctx context.Context, ds ipld.DAGService, a, b *ipld.Link) ([]*Change, error) {
+	nodeA, err := a.GetNode(ctx, ds)
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME(BLOCKING): Support the raw node type since it's very common in UnixFS files.
+	// FIXME: Consider reporting the node we can't probe just as a diff and not
+	//  an error.
+	pbNodeA, ok := nodeA.(*dag.ProtoNode)
+	if !ok {
+		// FIXME: We should print a more complete path here.
+		return nil, fmt.Errorf("node %s is not ProtoNode format", nodeA.Cid())
+	}
+
+	nodeB, err := b.GetNode(ctx, ds)
+	if err != nil {
+		return nil, err
+	}
+
+	pbNodeB, ok := nodeB.(*dag.ProtoNode)
+	if !ok {
+		// FIXME: We should print a more complete path here.
+		return nil, fmt.Errorf("node %s is not ProtoNode format", nodeB.Cid())
+	}
+
+	return Diff(ctx, ds, pbNodeA, pbNodeB)
+}
+
+// Links in a node that share the same name.
+type sameNameLinks struct {
+	name string
+	list []*ipld.Link
+}
+
+// Whether there is only one link under this name.
+func (snl *sameNameLinks) singleLink() bool {
+	return len(snl.list) == 1
+}
+
+func (snl *sameNameLinks) reportAsChange(t ChangeType) []*Change {
+	out := make([]*Change, 0, len(snl.list))
+	for _, l := range snl.list {
+		switch t {
+		case Add:
+			out = append(out, &Change{Type: t, Path: l.Name, After: l.Cid})
+		case Remove:
+			out = append(out, &Change{Type: t, Path: l.Name, Before: l.Cid})
+		default:
+			panic("only add/remove supported")
+		}
+	}
+	return out
+}
+
+func extractSortedGroupedLinks(n *dag.ProtoNode) []*sameNameLinks {
+	if len(n.Links()) == 0 {
+		return nil
+	}
+
+	links := n.Copy().(*dag.ProtoNode).Links()
+	// FIXME(BLOCKING): Do we care about changing link order in the original
+	//  node? Maybe we can avoid the copy altogether and sort the original.
+	sort.SliceStable(links, func(i, j int) bool {
+		nameCmp := strings.Compare(links[i].Name, links[j].Name)
+		if nameCmp != 0 {
+			return nameCmp < 0
+		}
+		return strings.Compare(links[i].Cid.String(), links[j].Cid.String()) < 0
+		// FIXME(BLOCKING): Is there a canonical way to sort CIDs? (Even
+		//  if the order is meaningless, just to have a stable order).
+	})
+
+	// Group links by name.
+	groupedByName := make([]*sameNameLinks, 0, len(links))
+	var group *sameNameLinks
+	for _, l := range links {
+		if group == nil || l.Name != group.name {
+			// New group of same-named links.
+			group = &sameNameLinks{
+				name: l.Name,
+				list: []*ipld.Link{l},
+			}
+			groupedByName = append(groupedByName, group)
+		} else {
+			group.list = append(group.list, l)
+		}
+	}
+
+	return groupedByName
 }
 
 // Conflict represents two incompatible changes and is returned by MergeDiffs().
