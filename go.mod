@@ -12,7 +12,7 @@ require (
 	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/ipfs/go-ipld-format v0.2.1-0.20220302134852-d02e0e18fc65
 	github.com/ipfs/go-ipld-legacy v0.1.0
-	github.com/ipld/go-codec-dagpb v1.3.0
+	github.com/ipld/go-codec-dagpb v1.3.2
 	github.com/ipld/go-ipld-prime v0.11.0
 	github.com/multiformats/go-multihash v0.0.15
 )
