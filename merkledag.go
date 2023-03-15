@@ -285,7 +285,7 @@ func GetLinksWithDAG(ng format.NodeGetter) GetLinks {
 
 // defaultConcurrentFetch is the default maximum number of concurrent fetches
 // that 'fetchNodes' will start at a time
-const defaultConcurrentFetch = 128
+const defaultConcurrentFetch = 16
 
 // walkOptions represent the parameters of a graph walking algorithm
 type walkOptions struct {
