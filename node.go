@@ -8,10 +8,10 @@ import (
 	"math"
 	"sort"
 
-	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	format "github.com/ipfs/go-ipld-format"
 	legacy "github.com/ipfs/go-ipld-legacy"
+	blocks "github.com/ipfs/go-libipfs/blocks"
 	logging "github.com/ipfs/go-log/v2"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	ipld "github.com/ipld/go-ipld-prime"

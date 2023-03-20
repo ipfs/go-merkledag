@@ -19,13 +19,13 @@ import (
 	mdpb "github.com/ipfs/go-merkledag/pb"
 	dstest "github.com/ipfs/go-merkledag/test"
 
-	blocks "github.com/ipfs/go-block-format"
-	bserv "github.com/ipfs/go-blockservice"
-	bstest "github.com/ipfs/go-blockservice/test"
 	cid "github.com/ipfs/go-cid"
-	offline "github.com/ipfs/go-ipfs-exchange-offline"
-	u "github.com/ipfs/go-ipfs-util"
 	ipld "github.com/ipfs/go-ipld-format"
+	blocks "github.com/ipfs/go-libipfs/blocks"
+	bserv "github.com/ipfs/go-libipfs/blockservice"
+	bstest "github.com/ipfs/go-libipfs/blockservice/test"
+	offline "github.com/ipfs/go-libipfs/exchange/offline"
+	u "github.com/ipfs/go-libipfs/util"
 	prime "github.com/ipld/go-ipld-prime"
 	mh "github.com/multiformats/go-multihash"
 )

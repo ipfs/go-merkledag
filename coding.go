@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	format "github.com/ipfs/go-ipld-format"
+	blocks "github.com/ipfs/go-libipfs/blocks"
 	pb "github.com/ipfs/go-merkledag/pb"
 	dagpb "github.com/ipld/go-codec-dagpb"
 	ipld "github.com/ipld/go-ipld-prime"

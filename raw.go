@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	blocks "github.com/ipfs/go-block-format"
-	u "github.com/ipfs/go-ipfs-util"
 	legacy "github.com/ipfs/go-ipld-legacy"
+	blocks "github.com/ipfs/go-libipfs/blocks"
+	u "github.com/ipfs/go-libipfs/util"
 	ipld "github.com/ipld/go-ipld-prime"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 

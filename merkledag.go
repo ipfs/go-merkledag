@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"sync"
 
-	blocks "github.com/ipfs/go-block-format"
-	bserv "github.com/ipfs/go-blockservice"
 	cid "github.com/ipfs/go-cid"
 	ipldcbor "github.com/ipfs/go-ipld-cbor"
 	format "github.com/ipfs/go-ipld-format"
 	legacy "github.com/ipfs/go-ipld-legacy"
+	blocks "github.com/ipfs/go-libipfs/blocks"
+	bserv "github.com/ipfs/go-libipfs/blockservice"
 	dagpb "github.com/ipld/go-codec-dagpb"
 
 	// blank import is used to register the IPLD raw codec
