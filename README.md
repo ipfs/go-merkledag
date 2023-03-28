@@ -3,15 +3,14 @@ go-merkledag
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 [![](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](http://ipfs.io/)
-[![](https://img.shields.io/badge/freenode-%23ipfs-blue.svg?style=flat-square)](http://webchat.freenode.net/?channels=%23ipfs)
 [![Coverage Status](https://codecov.io/gh/ipfs/go-merkledag/branch/master/graph/badge.svg)](https://codecov.io/gh/ipfs/go-merkledag/branch/master)
-[![Travis CI](https://travis-ci.org/ipfs/go-merkledag.svg?branch=master)](https://travis-ci.org/ipfs/go-merkledag)
 
 > go-merkledag implements the 'DAGService' interface and adds two ipld node types, Protobuf and Raw 
 
-## Lead Maintainer
+## Status
 
-[Steven Allen](https://github.com/Stebalien)
+❗ This repo is not actively maintained and it should ideally be deprecated.  
+The version that is still used within Kubo lives in https://github.com/ipfs/boxp/tree/main/ipld/merkledag 
 
 ## Table of Contents
 
