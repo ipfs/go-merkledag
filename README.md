@@ -10,7 +10,7 @@ go-merkledag
 ## Status
 
 ❗ This repo is not actively maintained and it should ideally be deprecated.  
-The version that is still used within Kubo lives in https://github.com/ipfs/boxp/tree/main/ipld/merkledag 
+The version that is still used within Kubo lives in https://github.com/ipfs/boxo/tree/main/ipld/merkledag 
 
 ## Table of Contents
 
