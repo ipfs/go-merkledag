@@ -26,9 +26,6 @@ func init() {
 	format.Register(cid.DagProtobuf, DecodeProtobufBlock)
 	format.Register(cid.Raw, DecodeRawBlock)
 	format.Register(cid.DagCBOR, ipldcbor.DecodeBlock)
-
-	legacy.RegisterCodec(cid.DagProtobuf, dagpb.Type.PBNode, ProtoNodeConverter)
-	legacy.RegisterCodec(cid.Raw, basicnode.Prototype.Bytes, RawNodeConverter)
 }
 
 // contextKey is a type to use as value for the ProgressTracker contexts.
@@ -39,7 +36,14 @@ const progressContextKey contextKey = "progress"
 // NewDAGService constructs a new DAGService (using the default implementation).
 // Note that the default implementation is also an ipld.LinkGetter.
 func NewDAGService(bs bserv.BlockService) *dagService {
-	return &dagService{Blocks: bs}
+	d := legacy.NewDecoder()
+	d.RegisterCodec(cid.DagProtobuf, dagpb.Type.PBNode, ProtoNodeConverter)
+	d.RegisterCodec(cid.Raw, basicnode.Prototype.Bytes, RawNodeConverter)
+
+	return &dagService{
+		Blocks:  bs,
+		decoder: d,
+	}
 }
 
 // dagService is an IPFS Merkle DAG service.
@@ -49,7 +53,8 @@ func NewDAGService(bs bserv.BlockService) *dagService {
 //
 //	able to free some of them when vm pressure is high
 type dagService struct {
-	Blocks bserv.BlockService
+	Blocks  bserv.BlockService
+	decoder *legacy.Decoder
 }
 
 // Add adds a node to the dagService, storing the block in the BlockService
@@ -83,7 +88,7 @@ func (n *dagService) Get(ctx context.Context, c cid.Cid) (format.Node, error) {
 		return nil, err
 	}
 
-	return legacy.DecodeNode(ctx, b)
+	return n.decoder.DecodeNode(ctx, b)
 }
 
 // GetLinks return the links for the node, the node doesn't necessarily have
@@ -132,7 +137,8 @@ func GetLinksDirect(serv format.NodeGetter) GetLinks {
 }
 
 type sesGetter struct {
-	bs *bserv.Session
+	bs      *bserv.Session
+	decoder *legacy.Decoder
 }
 
 // Get gets a single node from the DAG.
@@ -143,22 +149,33 @@ func (sg *sesGetter) Get(ctx context.Context, c cid.Cid) (format.Node, error) {
 		return nil, err
 	}
 
-	return legacy.DecodeNode(ctx, blk)
+	return sg.decoder.DecodeNode(ctx, blk)
 }
 
 // GetMany gets many nodes at once, batching the request if possible.
 func (sg *sesGetter) GetMany(ctx context.Context, keys []cid.Cid) <-chan *format.NodeOption {
-	return getNodesFromBG(ctx, sg.bs, keys)
+	return getNodesFromBG(ctx, sg.bs, keys, sg.decoder)
 }
 
 // WrapSession wraps a blockservice session to satisfy the format.NodeGetter interface
 func WrapSession(s *bserv.Session) format.NodeGetter {
-	return &sesGetter{s}
+	d := legacy.NewDecoder()
+	d.RegisterCodec(cid.DagProtobuf, dagpb.Type.PBNode, ProtoNodeConverter)
+	d.RegisterCodec(cid.Raw, basicnode.Prototype.Bytes, RawNodeConverter)
+
+	return &sesGetter{
+		bs:      s,
+		decoder: d,
+	}
 }
 
 // Session returns a NodeGetter using a new session for block fetches.
 func (n *dagService) Session(ctx context.Context) format.NodeGetter {
-	return WrapSession(bserv.NewSession(ctx, n.Blocks))
+	session := bserv.NewSession(ctx, n.Blocks)
+	return &sesGetter{
+		bs:      session,
+		decoder: n.decoder,
+	}
 }
 
 // FetchGraph fetches all nodes that are children of the given node
@@ -218,7 +235,7 @@ func FetchGraphWithDepthLimit(ctx context.Context, root cid.Cid, depthLim int, s
 // error indicating that it failed to do so. It is up to the caller to verify
 // that it received all nodes.
 func (n *dagService) GetMany(ctx context.Context, keys []cid.Cid) <-chan *format.NodeOption {
-	return getNodesFromBG(ctx, n.Blocks, keys)
+	return getNodesFromBG(ctx, n.Blocks, keys, n.decoder)
 }
 
 func dedupKeys(keys []cid.Cid) []cid.Cid {
@@ -232,7 +249,7 @@ func dedupKeys(keys []cid.Cid) []cid.Cid {
 	return set.Keys()
 }
 
-func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid) <-chan *format.NodeOption {
+func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid, decoder *legacy.Decoder) <-chan *format.NodeOption {
 	keys = dedupKeys(keys)
 
 	out := make(chan *format.NodeOption, len(keys))
@@ -251,7 +268,7 @@ func getNodesFromBG(ctx context.Context, bs bserv.BlockGetter, keys []cid.Cid) <
 					return
 				}
 
-				nd, err := legacy.DecodeNode(ctx, b)
+				nd, err := decoder.DecodeNode(ctx, b)
 				if err != nil {
 					out <- &format.NodeOption{Err: err}
 					return
