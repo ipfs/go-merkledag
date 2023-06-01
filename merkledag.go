@@ -9,7 +9,6 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	bserv "github.com/ipfs/go-blockservice"
 	cid "github.com/ipfs/go-cid"
-	ipldcbor "github.com/ipfs/go-ipld-cbor"
 	format "github.com/ipfs/go-ipld-format"
 	legacy "github.com/ipfs/go-ipld-legacy"
 	dagpb "github.com/ipld/go-codec-dagpb"
@@ -18,15 +17,6 @@ import (
 	_ "github.com/ipld/go-ipld-prime/codec/raw"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
 )
-
-// TODO: We should move these registrations elsewhere. Really, most of the IPLD
-// functionality should go in a `go-ipld` repo but that will take a lot of work
-// and design.
-func init() {
-	format.Register(cid.DagProtobuf, DecodeProtobufBlock)
-	format.Register(cid.Raw, DecodeRawBlock)
-	format.Register(cid.DagCBOR, ipldcbor.DecodeBlock)
-}
 
 // contextKey is a type to use as value for the ProgressTracker contexts.
 type contextKey string
