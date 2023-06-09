@@ -155,13 +155,9 @@ func (sg *sesGetter) GetMany(ctx context.Context, keys []cid.Cid) <-chan *format
 
 // WrapSession wraps a blockservice session to satisfy the format.NodeGetter interface
 func WrapSession(s *bserv.Session) format.NodeGetter {
-	d := legacy.NewDecoder()
-	d.RegisterCodec(cid.DagProtobuf, dagpb.Type.PBNode, ProtoNodeConverter)
-	d.RegisterCodec(cid.Raw, basicnode.Prototype.Bytes, RawNodeConverter)
-
 	return &sesGetter{
 		bs:      s,
-		decoder: d,
+		decoder: ipldLegacyDecoder,
 	}
 }
 
