@@ -2,7 +2,6 @@ module github.com/ipfs/go-merkledag
 
 go 1.21
 
-
 require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/ipfs/go-block-format v0.0.3
