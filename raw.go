@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	u "github.com/ipfs/boxo/util"
 	blocks "github.com/ipfs/go-block-format"
-	u "github.com/ipfs/go-ipfs-util"
 	legacy "github.com/ipfs/go-ipld-legacy"
 	ipld "github.com/ipld/go-ipld-prime"
 	basicnode "github.com/ipld/go-ipld-prime/node/basic"
