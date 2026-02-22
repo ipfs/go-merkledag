@@ -1,6 +1,6 @@
 module github.com/ipfs/go-merkledag
 
-go 1.24
+go 1.25
 
 require (
 	github.com/gogo/protobuf v1.3.2
